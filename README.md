@@ -1,6 +1,6 @@
 # 竹南冷凍倉儲庫存管理系統
 
-目前完成 A0 基礎骨架、A1 登入／基本資料，以及 A3 共用庫存服務、選單 API 與情境庫存。
+目前完成 A0 基礎骨架、A1 登入／基本資料、A3 共用庫存服務，以及 A2 品項／儲位管理與導覽。
 入庫、出庫、移位、盤點、損耗與報表仍未實作。
 
 ## 環境與安裝
@@ -98,6 +98,20 @@ Invoke-RestMethod http://127.0.0.1:8000/api/health
 | `GET /api/master-data/locations` | 兩角色 | 回傳儲位、所屬冷凍庫與啟用狀態 |
 
 未登入回 `401`，帳密錯誤回 `401`，角色不符回 `403`。共用後端依賴位於 `backend/auth.py`：`get_current_user`、`require_admin`、`require_worker`、`require_roles(...)`。共用前端呼叫與型別位於 `frontend/src/api`、`frontend/src/types`。Session 保存在執行中的後端記憶體，後端重啟後需重新登入。
+
+## A2 品項、儲位與導覽
+
+登入後的共用導覽包含首頁、倉管操作，以及僅管理者可見的基本資料頁。倉管操作入口預留給 B／C／D 的入庫、出庫、移位及盤點頁；管理者首頁保留 D3 統計位置，未合併前明確顯示待串接。
+
+| 方法與路徑 | 權限 | 說明 |
+| --- | --- | --- |
+| `GET /api/master-data/warehouses` | 兩角色 | 讀取 A／B 冷凍庫，供儲位表單選擇 |
+| `POST /api/master-data/products` | ADMIN | 新增品項；輸入 `name`、`unit`、`min_qty`、`target_qty`、`is_active` |
+| `PUT /api/master-data/products/{id}` | ADMIN | 編輯品項；已有庫存異動時不可更改單位 |
+| `POST /api/master-data/locations` | ADMIN | 新增儲位；輸入 `warehouse_id`、`code`、`is_active` |
+| `PUT /api/master-data/locations/{id}` | ADMIN | 編輯或停用儲位；仍有正餘量時不可停用 |
+
+名稱或代碼重複、已有異動卻更改單位、未搬空便停用儲位回 `409`；資料不存在回 `404`；欄位格式、負數或目標量低於最低量回 `422`；WORKER 寫入回 `403`。管理頁建立儲位時選冷凍庫並輸入 1–99 的編號，例如選 B、輸入 3，自動送出 `B-03`。本版本不刪除品項或儲位，停用後仍保留清單與歷史關聯。
 
 ## A3 共用庫存介面
 

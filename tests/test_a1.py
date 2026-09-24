@@ -236,3 +236,111 @@ def test_stock_option_api_returns_seed_scenarios(seeded_database: Path) -> None:
             ("B-04", 3),
         ]
         assert len(locations.json()) == 5
+
+
+def test_a2_admin_can_create_and_edit_master_data_worker_cannot(
+    seeded_database: Path,
+) -> None:
+    with TestClient(app) as client:
+        client.post(
+            "/api/auth/login",
+            json={"username": "worker", "password": "worker1234"},
+        )
+        product_payload = {
+            "name": "甘藍菜",
+            "unit": "籠",
+            "min_qty": 9,
+            "target_qty": 15,
+            "is_active": True,
+        }
+        assert client.post(
+            "/api/master-data/products", json=product_payload
+        ).status_code == 403
+        client.post("/api/auth/logout")
+        client.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "admin1234"},
+        )
+
+        created = client.post("/api/master-data/products", json=product_payload)
+        assert created.status_code == 201
+        product_id = created.json()["id"]
+        product_payload["target_qty"] = 16
+        updated = client.put(
+            f"/api/master-data/products/{product_id}", json=product_payload
+        )
+        assert updated.status_code == 200
+        assert updated.json()["target_qty"] == 16
+        assert any(
+            item["name"] == "甘藍菜" and item["target_qty"] == 16
+            for item in client.get("/api/master-data/products").json()
+        )
+
+        warehouse_id = client.get("/api/master-data/warehouses").json()[0]["id"]
+        location_payload = {
+            "warehouse_id": warehouse_id,
+            "code": "a-03",
+            "is_active": True,
+        }
+        location = client.post("/api/master-data/locations", json=location_payload)
+        assert location.status_code == 201
+        assert location.json()["code"] == "A-03"
+        location_payload.update({"code": "A-03", "is_active": False})
+        disabled = client.put(
+            f"/api/master-data/locations/{location.json()['id']}",
+            json=location_payload,
+        )
+        assert disabled.status_code == 200
+        assert disabled.json()["is_active"] is False
+
+
+def test_a2_rejects_invalid_changes_without_writing(seeded_database: Path) -> None:
+    with TestClient(app) as client:
+        client.post(
+            "/api/auth/login",
+            json={"username": "admin", "password": "admin1234"},
+        )
+        products = client.get("/api/master-data/products").json()
+        carrot = next(item for item in products if item["name"] == "紅蘿蔔")
+        changed_unit = {**carrot, "unit": "箱"}
+        response = client.put(
+            f"/api/master-data/products/{carrot['id']}", json=changed_unit
+        )
+        assert response.status_code == 409
+        assert "不能修改單位" in response.json()["detail"]
+
+        invalid = client.post(
+            "/api/master-data/products",
+            json={
+                "name": "錯誤品項",
+                "unit": "籠",
+                "min_qty": 10,
+                "target_qty": 5,
+                "is_active": True,
+            },
+        )
+        assert invalid.status_code == 422
+        assert not any(
+            item["name"] == "錯誤品項"
+            for item in client.get("/api/master-data/products").json()
+        )
+
+        b03 = next(
+            item
+            for item in client.get("/api/master-data/locations").json()
+            if item["code"] == "B-03"
+        )
+        disable = client.put(
+            f"/api/master-data/locations/{b03['id']}",
+            json={
+                "warehouse_id": b03["warehouse_id"],
+                "code": b03["code"],
+                "is_active": False,
+            },
+        )
+        assert disable.status_code == 409
+        assert "仍有庫存" in disable.json()["detail"]
+        refreshed = client.get("/api/master-data/locations").json()
+        assert next(item for item in refreshed if item["code"] == "B-03")[
+            "is_active"
+        ] is True
