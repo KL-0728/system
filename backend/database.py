@@ -10,8 +10,9 @@ SCHEMA_PATH = Path(__file__).with_name("schema.sql")
 
 
 @contextmanager
-def connect_database(path: Path = DATABASE_PATH) -> Iterator[sqlite3.Connection]:
+def connect_database(path: Path | None = None) -> Iterator[sqlite3.Connection]:
     # Do not silently create an empty database if initialization was missed.
+    path = path or DATABASE_PATH
     connection = sqlite3.connect(path.resolve().as_uri() + "?mode=rw", uri=True)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")

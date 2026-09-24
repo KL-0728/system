@@ -1,34 +1,25 @@
 import { useEffect, useState } from 'react';
-import { getHealth } from '../api/health';
+import { getLocations, getProducts } from '../api/masterData';
+import type { CurrentUser } from '../types/auth';
+import type { Location, Product } from '../types/masterData';
 
-export default function HomePage() {
-  const [status, setStatus] = useState('正在確認後端連線…');
+export default function HomePage({ user, onLogout }: { user: CurrentUser; onLogout: () => Promise<void> }) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [message, setMessage] = useState('正在讀取基本資料…');
+  const [submitting, setSubmitting] = useState(false);
   useEffect(() => {
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 5000);
     let active = true;
-    getHealth(controller.signal)
-      .then(() => { if (active) setStatus('後端服務正常'); })
-      .catch(() => {
-        if (active) setStatus('無法連線後端，請確認服務已啟動後重新整理。');
-      })
-      .finally(() => window.clearTimeout(timeout));
-    return () => {
-      active = false;
-      window.clearTimeout(timeout);
-      controller.abort();
-    };
+    Promise.all([getProducts(), getLocations()]).then(([productRows, locationRows]) => {
+      if (active) { setProducts(productRows); setLocations(locationRows); setMessage(''); }
+    }).catch((error) => { if (active) setMessage(error instanceof Error ? error.message : '讀取失敗'); });
+    return () => { active = false; };
   }, []);
-  return (
-    <main>
-      <p className="phase">第一階段 · 基礎骨架</p>
-      <h1>竹南冷凍倉儲<br />庫存管理系統</h1>
-      <p>歡迎使用。此頁為暫時首頁，供團隊確認系統啟動與連線。</p>
-      <section aria-labelledby="service-title">
-        <h2 id="service-title">服務狀態</h2>
-        <p role="status">{status}</p>
-      </section>
-      <p className="note">登入、品項與儲位管理，以及入庫、出庫、移位、盤點和報表功能尚未開放。</p>
-    </main>
-  );
+  async function handleLogout() { setSubmitting(true); try { await onLogout(); } finally { setSubmitting(false); } }
+  return <main className="app-shell">
+    <header><div><p className="eyebrow">竹南冷凍倉儲</p><h1>基本資料</h1><p>{user.display_name} · {user.role === 'ADMIN' ? '管理者' : '倉管人員'}</p></div><button className="secondary" disabled={submitting} onClick={handleLogout}>登出</button></header>
+    {message && <p role="status">{message}</p>}
+    <section className="card" aria-labelledby="products-title"><h2 id="products-title">品項</h2><div className="item-grid">{products.map((product) => <article key={product.id}><strong>{product.name}</strong><span>{product.unit} · 最低 {product.min_qty} · 目標 {product.target_qty}</span>{!product.is_active && <span className="inactive">已停用</span>}</article>)}</div></section>
+    <section className="card" aria-labelledby="locations-title"><h2 id="locations-title">儲位</h2><div className="item-grid">{locations.map((location) => <article key={location.id}><strong>{location.code}</strong><span>{location.warehouse_name}</span>{!location.is_active && <span className="inactive">已停用</span>}</article>)}</div></section>
+  </main>;
 }

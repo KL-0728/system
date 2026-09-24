@@ -1,9 +1,7 @@
 # 竹南冷凍倉儲庫存管理系統
 
-組員 A 的第一階段「基礎骨架」：React + TypeScript + Vite、FastAPI、SQLite。
-目前只有繁體中文暫時首頁、後端健康檢查與空資料庫初始化。
-尚未實作登入／權限、品項／儲位、入庫、出庫、移位、盤點、損耗、報表及示範資料；沒有示範帳號。
-這不是 spec.md 第 10 節完整第一階段的驗收完成版本。
+目前完成 A0 基礎骨架與 A1 登入、角色權限、基本資料 seed 及唯讀清單。
+入庫、出庫、移位、盤點、損耗與報表仍未實作。
 
 ## 環境與安裝
 
@@ -32,7 +30,14 @@ macOS／Linux：Python 路徑改為 .venv/bin/python，npm.cmd 改為 npm；
 
 重複初始化會回報 Database already exists 並以非零狀態結束，保留原資料。
 不要刪除既有資料庫來套用結構更新；後續需由團隊協調遷移。
-seed.py 留待後續示範資料實作。備份時先停止服務，再複製 data/inventory.db；
+初始化後執行 `.\.venv\Scripts\python.exe -m backend.seed`。Seed 只補缺少的示範資料，不重複新增或覆寫既有內容：
+
+- 管理者：`admin`／`admin1234`
+- 倉管人員：`worker`／`worker1234`
+- A、B 冷凍庫及 A-01、A-02、B-02、B-03、B-04
+- 紅蘿蔔、青花菜；刻意不含展示時才建立的甘藍菜
+
+密碼以 PBKDF2-SHA256 加鹽雜湊保存。備份時先停止服務，再複製 data/inventory.db；
 還原時同樣先停止服務，保留目前檔案備份後再放回。
 
 ## 開發啟動（兩個終端機）
@@ -49,7 +54,7 @@ seed.py 留待後續示範資料實作。備份時先停止服務，再複製 da
 npm.cmd --prefix frontend run dev
 ```
 
-開啟 http://localhost:5173，首頁應顯示「後端服務正常」。
+開啟 http://localhost:5173，應先看到登入頁，登入後顯示目前角色、品項與儲位。
 Vite 將 /api 轉送至本機 8000 埠，手機也使用相同相對路徑，不需設定 CORS。
 連線失敗時首頁最多約 5 秒後顯示錯誤；恢復服務後重新整理即可。
 
@@ -62,6 +67,18 @@ Invoke-RestMethod http://127.0.0.1:8000/api/health
 
 預期 HTTP 200，JSON 為 {"status":"ok"}；只表示後端可回應，不代表資料庫或業務功能已驗收。
 停止後端後刷新開發首頁，可確認錯誤訊息；未定義 API 路徑應回傳 404。
+
+## A1 API
+
+| 方法與路徑 | 權限 | 說明 |
+| --- | --- | --- |
+| `POST /api/auth/login` | 公開 | 輸入 `{"username":"worker","password":"worker1234"}`，設定 HttpOnly Cookie 並回傳使用者 |
+| `POST /api/auth/logout` | 公開 | 使目前 session 失效並清除 Cookie |
+| `GET /api/auth/me` | 已登入 | 回傳目前使用者與 `ADMIN`／`WORKER` 角色 |
+| `GET /api/master-data/products` | 兩角色 | 回傳品項、單位、門檻、目標量與啟用狀態 |
+| `GET /api/master-data/locations` | 兩角色 | 回傳儲位、所屬冷凍庫與啟用狀態 |
+
+未登入回 `401`，帳密錯誤回 `401`，角色不符回 `403`。共用後端依賴位於 `backend/auth.py`：`get_current_user`、`require_admin`、`require_worker`、`require_roles(...)`。共用前端呼叫與型別位於 `frontend/src/api`、`frontend/src/types`。Session 保存在執行中的後端記憶體，後端重啟後需重新登入。
 
 ## 同一網址展示（建置後只啟動後端）
 
