@@ -3,6 +3,7 @@ import sqlite3
 
 from backend.database import DATABASE_PATH, connect_database
 from backend.services.auth_service import hash_password
+from backend.services.stock_service import change_balance, record_movement
 
 
 DEMO_USERS = (
@@ -14,6 +15,10 @@ LOCATIONS = (("A", "A-01"), ("A", "A-02"), ("B", "B-02"), ("B", "B-03"), ("B", "
 PRODUCTS = (
     ("紅蘿蔔", "籠", 2, 8),
     ("青花菜", "籠", 2, 6),
+)
+SCENARIO_STOCK = (
+    ("LOT-20260924-901", "紅蘿蔔", "B-03", 5, "A3-SEED-CARROT-B03"),
+    ("LOT-20260924-902", "青花菜", "B-04", 3, "A3-SEED-BROCCOLI-B04"),
 )
 
 
@@ -63,6 +68,46 @@ def seed_database(path: Path = DATABASE_PATH) -> None:
                     )
                     """,
                     (name, unit, min_qty, target_qty, name),
+                )
+            worker_id = connection.execute(
+                "SELECT id FROM users WHERE username = 'worker' COLLATE NOCASE"
+            ).fetchone()["id"]
+            product_ids = {
+                row["name"]: row["id"]
+                for row in connection.execute("SELECT id, name FROM products")
+            }
+            location_ids = {
+                row["code"]: row["id"]
+                for row in connection.execute("SELECT id, code FROM locations")
+            }
+            for lot_code, product_name, location_code, qty, marker in SCENARIO_STOCK:
+                existing = connection.execute(
+                    "SELECT id, product_id FROM lots WHERE lot_code = ?", (lot_code,)
+                ).fetchone()
+                if existing is not None:
+                    if existing["product_id"] != product_ids[product_name]:
+                        raise RuntimeError(f"Seed lot code collision: {lot_code}")
+                    continue
+                cursor = connection.execute(
+                    """
+                    INSERT INTO lots (lot_code, product_id, received_date, note, created_by)
+                    VALUES (?, ?, '2026-09-24', ?, ?)
+                    """,
+                    (lot_code, product_ids[product_name], marker, worker_id),
+                )
+                lot_id = int(cursor.lastrowid)
+                location_id = location_ids[location_code]
+                change_balance(
+                    connection, lot_id, location_id, qty, create_if_missing=True
+                )
+                record_movement(
+                    connection,
+                    kind="RECEIPT",
+                    lot_id=lot_id,
+                    to_location_id=location_id,
+                    qty=qty,
+                    actor_id=worker_id,
+                    note=marker,
                 )
             connection.commit()
         except BaseException:

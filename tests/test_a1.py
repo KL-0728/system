@@ -9,6 +9,13 @@ from backend.auth import _sessions, require_admin
 from backend.main import app
 from backend.seed import seed_database
 from backend.services.auth_service import AuthenticatedUser
+from backend.services.stock_service import (
+    StockError,
+    change_balance,
+    ensure_no_pending,
+    get_balance,
+    stock_transaction,
+)
 
 
 @pytest.fixture()
@@ -89,3 +96,143 @@ def test_admin_role_dependency_rejects_worker() -> None:
         dependency(user=worker)
     assert getattr(error.value, "status_code", None) == 403
     assert dependency(user=admin) == admin
+
+
+def test_a3_seed_stock_is_complete_and_preserves_operated_balance(
+    seeded_database: Path,
+) -> None:
+    connection = sqlite3.connect(seeded_database)
+    connection.row_factory = sqlite3.Row
+    rows = connection.execute(
+        """
+        SELECT lots.lot_code, products.name, locations.code, stock_balances.qty
+        FROM stock_balances
+        JOIN lots ON lots.id = stock_balances.lot_id
+        JOIN products ON products.id = lots.product_id
+        JOIN locations ON locations.id = stock_balances.location_id
+        ORDER BY lots.lot_code
+        """
+    ).fetchall()
+    assert [tuple(row) for row in rows] == [
+        ("LOT-20260924-901", "紅蘿蔔", "B-03", 5),
+        ("LOT-20260924-902", "青花菜", "B-04", 3),
+    ]
+    assert connection.execute(
+        "SELECT count(*) FROM stock_movements WHERE kind = 'RECEIPT'"
+    ).fetchone()[0] == 2
+    carrot_lot_id = connection.execute(
+        "SELECT id FROM lots WHERE lot_code = 'LOT-20260924-901'"
+    ).fetchone()[0]
+    carrot_location_id = connection.execute(
+        "SELECT id FROM locations WHERE code = 'B-03'"
+    ).fetchone()[0]
+    connection.execute(
+        "UPDATE stock_balances SET qty = 4 WHERE lot_id = ? AND location_id = ?",
+        (carrot_lot_id, carrot_location_id),
+    )
+    connection.commit()
+    connection.close()
+
+    seed_database(seeded_database)
+
+    connection = sqlite3.connect(seeded_database)
+    assert connection.execute(
+        "SELECT qty FROM stock_balances WHERE lot_id = ? AND location_id = ?",
+        (carrot_lot_id, carrot_location_id),
+    ).fetchone()[0] == 4
+    assert connection.execute("SELECT count(*) FROM lots").fetchone()[0] == 2
+    assert connection.execute("SELECT count(*) FROM stock_movements").fetchone()[0] == 2
+    connection.close()
+
+
+def test_stock_transaction_rolls_back_and_rejects_negative_balance(
+    seeded_database: Path,
+) -> None:
+    with sqlite3.connect(seeded_database) as lookup:
+        lot_id = lookup.execute(
+            "SELECT id FROM lots WHERE lot_code = 'LOT-20260924-901'"
+        ).fetchone()[0]
+        location_id = lookup.execute(
+            "SELECT id FROM locations WHERE code = 'B-03'"
+        ).fetchone()[0]
+
+    with pytest.raises(RuntimeError):
+        with stock_transaction(seeded_database) as connection:
+            assert change_balance(connection, lot_id, location_id, -2) == 3
+            raise RuntimeError("force rollback")
+    with stock_transaction(seeded_database) as connection:
+        assert get_balance(connection, lot_id, location_id) == 5
+        with pytest.raises(StockError, match="不可為負數"):
+            change_balance(connection, lot_id, location_id, -6)
+    with sqlite3.connect(seeded_database) as connection:
+        assert connection.execute(
+            "SELECT qty FROM stock_balances WHERE lot_id = ? AND location_id = ?",
+            (lot_id, location_id),
+        ).fetchone()[0] == 5
+
+
+def test_pending_balance_blocks_source_and_existing_target(
+    seeded_database: Path,
+) -> None:
+    with stock_transaction(seeded_database) as connection:
+        lot_id = connection.execute(
+            "SELECT id FROM lots WHERE lot_code = 'LOT-20260924-901'"
+        ).fetchone()[0]
+        source_id = connection.execute(
+            "SELECT id FROM locations WHERE code = 'B-03'"
+        ).fetchone()[0]
+        target_id = connection.execute(
+            "SELECT id FROM locations WHERE code = 'B-02'"
+        ).fetchone()[0]
+        worker_id = connection.execute(
+            "SELECT id FROM users WHERE username = 'worker'"
+        ).fetchone()[0]
+        change_balance(connection, lot_id, target_id, 0, create_if_missing=True)
+        connection.execute(
+            """
+            INSERT INTO adjustment_requests (
+                kind, lot_id, location_id, original_qty, observed_qty,
+                reason, requested_by
+            ) VALUES ('COUNT', ?, ?, 5, 5, '測試來源凍結', ?)
+            """,
+            (lot_id, source_id, worker_id),
+        )
+        with pytest.raises(StockError, match="待審"):
+            ensure_no_pending(connection, lot_id, source_id)
+        connection.execute(
+            "UPDATE adjustment_requests SET status = 'REJECTED' WHERE lot_id = ? AND location_id = ?",
+            (lot_id, source_id),
+        )
+        connection.execute(
+            """
+            INSERT INTO adjustment_requests (
+                kind, lot_id, location_id, original_qty, observed_qty,
+                reason, requested_by
+            ) VALUES ('COUNT', ?, ?, 0, 0, '測試目標凍結', ?)
+            """,
+            (lot_id, target_id, worker_id),
+        )
+        with pytest.raises(StockError, match="待審"):
+            ensure_no_pending(connection, lot_id, target_id)
+
+
+def test_stock_option_api_returns_seed_scenarios(seeded_database: Path) -> None:
+    with TestClient(app) as client:
+        assert client.get("/api/stock-options/lots").status_code == 401
+        client.post(
+            "/api/auth/login",
+            json={"username": "worker", "password": "worker1234"},
+        )
+        lots = client.get("/api/stock-options/lots")
+        balances = client.get("/api/stock-options/balances")
+        locations = client.get("/api/stock-options/locations")
+        assert lots.status_code == balances.status_code == locations.status_code == 200
+        assert [(row["product_name"], row["total_qty"]) for row in lots.json()] == [
+            ("紅蘿蔔", 5),
+            ("青花菜", 3),
+        ]
+        assert [(row["location_code"], row["qty"]) for row in balances.json()] == [
+            ("B-03", 5),
+            ("B-04", 3),
+        ]
+        assert len(locations.json()) == 5

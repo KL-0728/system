@@ -1,6 +1,6 @@
 # 竹南冷凍倉儲庫存管理系統
 
-目前完成 A0 基礎骨架與 A1 登入、角色權限、基本資料 seed 及唯讀清單。
+目前完成 A0 基礎骨架、A1 登入／基本資料，以及 A3 共用庫存服務、選單 API 與情境庫存。
 入庫、出庫、移位、盤點、損耗與報表仍未實作。
 
 ## 環境與安裝
@@ -36,6 +36,7 @@ macOS／Linux：Python 路徑改為 .venv/bin/python，npm.cmd 改為 npm；
 - 倉管人員：`worker`／`worker1234`
 - A、B 冷凍庫及 A-01、A-02、B-02、B-03、B-04
 - 紅蘿蔔、青花菜；刻意不含展示時才建立的甘藍菜
+- `LOT-20260924-901` 紅蘿蔔在 B-03 共 5 籠、`LOT-20260924-902` 青花菜在 B-04 共 3 籠，以及各自一筆 `RECEIPT`
 
 密碼以 PBKDF2-SHA256 加鹽雜湊保存。備份時先停止服務，再複製 data/inventory.db；
 還原時同樣先停止服務，保留目前檔案備份後再放回。
@@ -80,6 +81,29 @@ Invoke-RestMethod http://127.0.0.1:8000/api/health
 
 未登入回 `401`，帳密錯誤回 `401`，角色不符回 `403`。共用後端依賴位於 `backend/auth.py`：`get_current_user`、`require_admin`、`require_worker`、`require_roles(...)`。共用前端呼叫與型別位於 `frontend/src/api`、`frontend/src/types`。Session 保存在執行中的後端記憶體，後端重啟後需重新登入。
 
+## A3 共用庫存介面
+
+兩種角色登入後都可讀取以下最小操作選單；這不是 B2 的完整庫存搜尋或異動歷史 API。
+
+| 方法與路徑 | 查詢參數 | 主要回傳欄位 |
+| --- | --- | --- |
+| `GET /api/stock-options/lots` | 可選 `product_id` | `lot_id`、批次碼、品項、單位、入庫日、跨位置合計 `total_qty` |
+| `GET /api/stock-options/balances` | 可選 `lot_id`；`positive_only` 預設 `true` | 批次、品項、位置、`qty`、`has_pending` |
+| `GET /api/stock-options/locations` | 無 | 所有啟用目標儲位及所屬冷凍庫 |
+
+例如登入後讀取所有正餘量：`GET /api/stock-options/balances?positive_only=true`。未登入回 `401`；無效的正整數查詢參數回 `422`；合法但沒有資料回空陣列 `[]`。前端共用契約在 `frontend/src/api/stockOptions.ts` 與 `frontend/src/types/stock.ts`。
+
+`backend/services/stock_service.py` 提供：
+
+- `stock_transaction(path=None)`：唯一負責 `BEGIN IMMEDIATE`、成功 `COMMIT`、例外 `ROLLBACK`。
+- `get_balance(...)`／`require_balance(..., at_least=...)`：讀取餘量及驗證足量。
+- `ensure_no_pending(...)`：阻止同一批次／位置在待審期間移出或移入。
+- `require_active_location(...)`：確認目標儲位存在且啟用。
+- `change_balance(..., delta, create_if_missing=False)`：原子更新餘量，拒絕負數並保留歸零列。
+- `record_movement(...)`：新增不可修改的庫存異動並回傳 ID。
+
+B／C／D 的 service 必須由最外層使用一次 `with stock_transaction() as connection:`，並把同一個 connection 傳給其他函式；這些輔助函式不自行開交易或 commit，route 也不得直接改餘量。Seed 已自行持有交易，所以只呼叫輔助函式，不可再包 `stock_transaction()`。
+
 ## 同一網址展示（建置後只啟動後端）
 
 先停止開發後端，再執行：
@@ -98,7 +122,7 @@ FastAPI 啟動時檢查 frontend/dist，存在時提供首頁與資源；
 
 需手動確認手機／電腦首頁、窄螢幕排版、正常及失敗狀態。
 手機無法連線時，檢查私人網路防火牆的 8000 埠及 Wi-Fi 裝置隔離設定。
-本階段沒有庫存資料同步操作可驗收。
+目前可用兩台裝置登入後讀取相同的批次與餘量；實際入庫、出庫、移位及盤點將由 B／C／D 的後續片段提供。
 
 ## 檔案分工與交接
 
@@ -106,8 +130,9 @@ FastAPI 啟動時檢查 frontend/dist，存在時提供首頁與資源；
 - frontend/src/api、types：API 呼叫與共用型別。
 - backend/main.py：入口、健康檢查、建置後的静態頁面。
 - backend/database.py、schema.sql：連線、一次性初始化、固定 SQL。
-- backend/models、schemas、routes、services：後續模組預留。
-- tests：後續業務測試預留；data：本機資料庫，不提交 Git。
+- backend/schemas、routes：登入、基本資料與最小庫存選單契約。
+- backend/services/stock_service.py：庫存交易、餘量、待審與異動共用介面。
+- tests：登入、seed 及共用庫存規則測試；data：本機資料庫，不提交 Git。
 
 AI 參與：骨架與文件由 AI 協助建立；組員 A 需理解啟動及資料庫初始化，
 由 B 對照 spec.md 第 4 節審查。完整業務流程尚未驗收。
