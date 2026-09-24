@@ -1,12 +1,24 @@
-:root {
-  font-family: system-ui, "Microsoft JhengHei", sans-serif;
-  color: #183c38; background: #f0f5f3; line-height: 1.7;
-}
+:root { font-family: system-ui, "Microsoft JhengHei", sans-serif; color: #183c38; background: #eef4f1; line-height: 1.6; }
 * { box-sizing: border-box; }
 body { margin: 0; }
-main { max-width: 760px; margin: 8vh auto; padding: 28px; }
-h1 { font-size: clamp(1.8rem, 5vw, 3rem); line-height: 1.35; }
-h2 { margin-top: 0; font-size: 1.2rem; }
-.phase { color: #35675f; font-weight: 700; }
-section { margin: 28px 0; padding: 24px; border: 1px solid #b8d0c9; border-radius: 12px; background: white; }
-.note { color: #50655f; }
+button, input { font: inherit; }
+button { min-height: 46px; padding: 10px 18px; border: 0; border-radius: 10px; color: white; background: #176b5b; font-weight: 700; cursor: pointer; }
+button:disabled { cursor: wait; opacity: .65; }
+button.secondary { color: #176b5b; background: #dcebe6; }
+.login-shell { display: grid; min-height: 100vh; place-items: center; padding: 20px; }
+.login-card { width: min(100%, 440px); }
+.app-shell { width: min(100%, 900px); margin: 0 auto; padding: 24px; }
+header { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+h1 { margin: 0 0 8px; font-size: clamp(1.9rem, 7vw, 3rem); line-height: 1.2; }
+h2 { margin-top: 0; }
+.eyebrow { margin-bottom: 4px; color: #357064; font-weight: 800; letter-spacing: .08em; }
+.card { margin: 22px 0; padding: clamp(20px, 5vw, 30px); border: 1px solid #b8d0c9; border-radius: 16px; background: white; box-shadow: 0 8px 30px #163c3420; }
+form { display: grid; gap: 16px; }
+label { display: grid; gap: 6px; font-weight: 700; }
+input { width: 100%; min-height: 46px; padding: 9px 12px; border: 1px solid #8eaaa3; border-radius: 9px; }
+.hint { color: #58716b; font-size: .92rem; }
+.error, .inactive { color: #9b2c2c; }
+.item-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 12px; }
+article { display: grid; gap: 3px; padding: 14px; border-radius: 10px; background: #f1f6f4; }
+article span { color: #526b65; font-size: .92rem; }
+@media (max-width: 520px) { .app-shell { padding: 16px; } header { align-items: flex-start; } header button { flex: 0 0 auto; } }
