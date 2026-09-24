@@ -18,6 +18,24 @@ npm.cmd --prefix frontend ci
 macOS／Linux：Python 路徑改為 .venv/bin/python，npm.cmd 改為 npm；
 建立環境時可用 python3 -m venv .venv。不必啟用虛擬環境。
 
+## Git 功能分支防呆
+
+新片段先 Fetch，再從遠端 main 建立「不追蹤 main」的功能分支：
+
+```powershell
+git fetch origin
+git switch --no-track -c feature/b-b1-inbound origin/main
+git branch -vv
+```
+
+`git branch -vv` 中目前功能分支不可顯示 `[origin/main]`。首次 Push 要明確指定同名功能分支：
+
+```powershell
+git push -u origin feature/b-b1-inbound
+```
+
+之後才可使用 VS Code「同步變更」。若功能分支誤顯示 `[origin/main]`，先停止 Push，執行 `git branch --unset-upstream` 並通知 A。GitHub 的 `main` 另應啟用 ruleset 或 branch protection，要求透過 Pull Request 合併，作為文件提醒之外的強制防線。
+
 ## SQLite 初始化（首次執行一次）
 
 ```powershell
