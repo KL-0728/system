@@ -53,3 +53,14 @@ article span { color: #526b65; font-size: .92rem; }
 .inbound-controls { display: grid; gap: 12px; margin-top: 20px; }
 .inbound-records { display: grid; gap: 12px; }
 @media (max-width: 650px) { .app-shell { padding: 16px; } .top-nav { position: static; flex-wrap: wrap; } .nav-links { order: 3; flex-basis: 100%; overflow-x: auto; } .account span { display: none; } .form-row { grid-template-columns: 1fr; } }
+.inventory-panel { min-width: 0; overflow-wrap: anywhere; }
+.inventory-panel fieldset { display: grid; gap: 12px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.inventory-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.inventory-results, .inventory-positions, .inventory-history { display: grid; gap: 10px; margin-top: 16px; }
+.inventory-lot { min-width: 0; border: 1px solid #c8d8d3; background: #f7faf8; }
+.inventory-lot h3, .inventory-lot p { margin: 0; }
+.inventory-lot > button { justify-self: start; margin-top: 12px; }
+.inventory-position { display: flex; justify-content: space-between; gap: 12px; padding: 10px; border-radius: 8px; background: white; }
+.inventory-movement { display: grid; gap: 3px; padding: 10px; border-left: 3px solid #176b5b; background: white; }
+.inventory-movement span { color: #526b65; }
+@media (max-width: 450px) { .inventory-actions button { width: 100%; } .inventory-position { display: grid; } }

@@ -3,11 +3,31 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from backend.auth import get_current_user, require_worker
 from backend.database import connect_database
 from backend.schemas.inbound import InboundCreate, InboundRecord, InboundResult
+from backend.schemas.inventory import InventoryBalance, InventoryMovement
 from backend.services.auth_service import AuthenticatedUser
 from backend.services.inbound_service import create_inbound
+from backend.services.inventory_service import lot_movements, search_inventory
 from backend.services.stock_service import StockError
 
 router = APIRouter(prefix="/api/inventory", tags=["inventory"])
+
+
+@router.get("/stock", response_model=list[InventoryBalance])
+def inventory_stock(
+    product_id: int | None = Query(default=None, gt=0, le=9223372036854775807),
+    lot_code: str | None = Query(default=None, max_length=100),
+    location_id: int | None = Query(default=None, gt=0, le=9223372036854775807),
+    _: AuthenticatedUser = Depends(get_current_user),
+) -> list[InventoryBalance]:
+    return search_inventory(product_id, lot_code, location_id)
+
+
+@router.get("/movements", response_model=list[InventoryMovement])
+def inventory_movements(
+    lot_id: int = Query(gt=0, le=9223372036854775807),
+    _: AuthenticatedUser = Depends(get_current_user),
+) -> list[InventoryMovement]:
+    return lot_movements(lot_id)
 
 
 @router.post("/inbound", response_model=InboundResult, status_code=201)
