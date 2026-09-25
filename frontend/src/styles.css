@@ -47,4 +47,9 @@ article span { color: #526b65; font-size: .92rem; }
 .transfer-panel select { min-width: 0; max-width: 100%; }
 .transfer-controls { display: grid; gap: 12px; margin-top: 20px; }
 .transfer-records, .transfer-balances { display: grid; gap: 12px; }
+.inbound-panel { min-width: 0; overflow-wrap: anywhere; }
+.inbound-panel fieldset { display: grid; gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.inbound-panel select { min-width: 0; max-width: 100%; }
+.inbound-controls { display: grid; gap: 12px; margin-top: 20px; }
+.inbound-records { display: grid; gap: 12px; }
 @media (max-width: 650px) { .app-shell { padding: 16px; } .top-nav { position: static; flex-wrap: wrap; } .nav-links { order: 3; flex-basis: 100%; overflow-x: auto; } .account span { display: none; } .form-row { grid-template-columns: 1fr; } }

@@ -208,6 +208,32 @@ C1 主要檔案為 `frontend/src/pages/OutboundPage.tsx`、`frontend/src/api/out
 
 後端檢查：`.\.venv\Scripts\python.exe -m pytest -q`；前端檢查：`npm.cmd --prefix frontend run build`。本片段的測試使用暫存 SQLite，不修改本機展示資料庫。實體手機仍須依上方「同一網址展示」方式連線驗收。
 
+## B1 單筆入庫與操作驗收
+
+以 `worker`／`worker1234` 登入，進入「倉管操作」最上方的「入庫」區塊。選啟用品項、一個啟用儲位，輸入正整數數量與入庫日期（預設今天，臺灣時間），備註選填。批次碼由後端產生，前端不組碼；同一批要放多處時，入庫後再用 C2 移位分拆。管理者可讀入庫紀錄，但不能提交入庫。
+
+| 方法與路徑 | 權限 | 輸入／結果 |
+| --- | --- | --- |
+| `POST /api/inventory/inbound` | WORKER | `product_id, location_id, qty, received_date, note`；201 回傳 `lot_id, lot_code, product_id, location_id, received_date, qty`（該儲位此批新餘量）、`movement_id` |
+| `GET /api/inventory/inbound` | 兩角色 | 可選 `lot_id`；回傳最新 100 筆 RECEIPT，含批次、品項、單位、入庫日、儲位、數量、操作者、備註及 UTC `created_at` |
+
+例如 POST `{"product_id":1,"location_id":1,"qty":10,"received_date":"2026-09-25","note":"課堂入庫"}`，成功回傳 `{"lot_id":3,"lot_code":"LOT-20260925-001",...,"qty":10,"movement_id":3}`。ID 只是範例，請以品項／儲位清單實際回傳的 ID 為準。
+
+批次碼為 `LOT-YYYYMMDD-NNN`，日期取入庫日，序號取同日已用最大號加 1（例如 seed 已有 `LOT-20260924-901`、`902`，同日下一批為 `903`）；在 `BEGIN IMMEDIATE` 交易內計算，避免同時入庫撞號。未登入 401、非 WORKER 寫入 403；品項或儲位不存在／已停用 409；數量非正整數、日期格式錯誤、不存在的日期（如 2026-02-30）或晚於今天（臺灣時間）、備註超過 500 字、額外欄位（如 `actor_id`、`lot_code`）422。被拒時不建立批次、餘量或異動。操作者來自登入狀態。
+
+`inbound_service.py` 在一次 A3 `stock_transaction()` 內依序：確認品項啟用 → `require_active_location` → 產生批次碼並新增 `lots` → `change_balance(..., create_if_missing=True)` → `record_movement(kind="RECEIPT")`；任何一步失敗整筆回滾。未改共用選單、交易服務或建表 SQL。入庫紀錄查詢只用來核對入庫結果；完整庫存搜尋與各類異動歷史屬於 B2。
+
+1. 依上方安裝、初始化及 seed（已有資料庫只需 seed 補缺，不要重新初始化）。啟動後端與前端，開啟 http://localhost:5173，倉管登入後點「倉管操作」。
+2. 正常操作：選「紅蘿蔔（籠）」、A-01、數量 10、日期保持今天，按「確認入庫」。應顯示批次號（如 `LOT-20260925-001`）、A-01 此批餘量 10 籠與異動編號；最近入庫紀錄新增一筆，下方出庫、移位選單也出現這批 A-01 10 籠。重新整理後再進倉管操作，紀錄與餘量仍在。
+3. 錯誤操作：數量輸入 0、負數或小數，瀏覽器或畫面會阻擋、不送出，紀錄不增加。停用儲位不會出現在選單中；後端另有自動測試確認直接呼叫 API 送停用儲位／品項會回 409 且不寫入。
+4. 連點「確認入庫」只會送出一筆；等待回應時表單停用。若顯示「結果未確認」，先按「查詢入庫紀錄」核對品項、儲位、數量、時間和操作者，確認後才按「我已核對紀錄，開始新的操作」，避免重複建立批次。
+
+後端檢查：`.\.venv\Scripts\python.exe -m pytest -q`；前端檢查：`npm.cmd --prefix frontend run build`。`tests/test_b1.py` 使用暫存 SQLite，不修改本機展示資料庫。
+
+B1 主要檔案為 `frontend/src/pages/InboundPage.tsx`、`frontend/src/api/inventory.ts`、`backend/routes/inventory.py`、`backend/services/inbound_service.py`、`backend/schemas/inbound.py` 及 `tests/test_b1.py`；另在 `backend/main.py` 註冊路由、`OperationsPage.tsx` 加入入庫區塊、`styles.css` 加入入庫版面樣式。AI 協助實作與測試；B 應理解「表單 → 登入權限 → 同一交易建批次／餘量／RECEIPT → 回傳資料庫結果」。
+
+2026-09-25 B1 實測（雲端 Linux、Python 3.11、Node 22）：後端 49 項測試全數通過（含既有 A1／A3／C1／C2），TypeScript／Vite build 通過；Chromium 自動操作確認倉管入庫 10 籠成功、連點只送一筆 POST、重新整理後出庫選單可見新批次、0 與小數不送出，320／390／1280px 無橫向溢出、無 JavaScript 錯誤。Windows 本機與實體手機仍需本人依上方步驟驗收。
+
 ## 檔案分工與交接
 
 - frontend/src/pages：頁面；components：共用元件預留。
