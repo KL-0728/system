@@ -3,12 +3,13 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from backend.routes import auth, master_data, stock_options
+from backend.routes import auth, master_data, stock_options, outbound
 
 app = FastAPI(title="竹南冷凍倉儲庫存管理系統", version="0.1.0")
 app.include_router(auth.router)
 app.include_router(master_data.router)
 app.include_router(stock_options.router)
+app.include_router(outbound.router)
 
 
 @app.get("/api/health")

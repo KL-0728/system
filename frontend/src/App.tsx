@@ -18,7 +18,7 @@ export default function App() {
   if (!user) return <LoginPage onLogin={setUser} />;
   return <><Navigation user={user} page={page} onNavigate={setPage} onLogout={handleLogout} busy={loggingOut} />
     {page === 'home' && <HomePage user={user} />}
-    {page === 'operations' && <OperationsPage />}
+    {page === 'operations' && <OperationsPage role={user.role} />}
     {page === 'settings' && user.role === 'ADMIN' && <SettingsPage />}
   </>;
 }

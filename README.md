@@ -1,7 +1,7 @@
 # 竹南冷凍倉儲庫存管理系統
 
 目前完成 A0 基礎骨架、A1 登入／基本資料、A3 共用庫存服務，以及 A2 品項／儲位管理與導覽。
-入庫、出庫、移位、盤點、損耗與報表仍未實作。
+本分支另完成 C1 出庫表單、API 與出庫紀錄核對。入庫、移位、盤點、損耗與報表仍未實作。
 
 ## 環境與安裝
 
@@ -154,7 +154,49 @@ FastAPI 啟動時檢查 frontend/dist，存在時提供首頁與資源；
 
 需手動確認手機／電腦首頁、窄螢幕排版、正常及失敗狀態。
 手機無法連線時，檢查私人網路防火牆的 8000 埠及 Wi-Fi 裝置隔離設定。
-目前可用兩台裝置登入後讀取相同的批次與餘量；實際入庫、出庫、移位及盤點將由 B／C／D 的後續片段提供。
+目前可用兩台裝置登入後讀取相同的批次與餘量，倉管也可操作出庫；入庫、移位及盤點將由後續片段提供。
+
+## C1 出庫與操作驗收
+
+以 `worker`／`worker1234` 登入，點「倉管操作」即可看到出庫表單。使用 A3 的庫存選單；管理者不能提交出庫，後端會驗證 WORKER 權限。
+
+| 方法與路徑 | 權限 | 輸入／結果 |
+| --- | --- | --- |
+| `POST /api/outbound` | WORKER | `lot_id, location_id, qty, note`；201 回傳 `lot_id, location_id, qty`（新餘量）、`movement_id` |
+| `GET /api/outbound` | 兩角色 | 可選 `lot_id, location_id` 篩選；回傳最新 100 筆出庫，包含異動 ID、批次、品項、儲位、出庫量、單位、操作者、備註及 UTC `created_at` |
+
+例如 POST `{"lot_id":1,"location_id":4,"qty":2,"note":"課堂出庫"}`，成功回傳 `{"lot_id":1,"location_id":4,"qty":3,"movement_id":3}`。ID 只是範例，請以 A3 選單實際回傳的 ID 為準。
+未登入 401、非 WORKER 寫入 403、超量／待審／不存在的批次儲位組合 409、非正整數／非法 ID／備註超過 500 字／額外欄位 422；被拒時不扣量也不新增異動。操作者來自登入狀態。
+
+`outbound_service.py` 在一次 A3 `stock_transaction()` 中檢查待審、餘量、扣量及寫入 OUTBOUND；失敗整筆回滾，歸零列保留。未改共用選單、交易服務或建表 SQL。C1 查詢僅用於核對出庫結果，B2 仍負責完整庫存搜尋與各類異動歷史。
+
+1. 首次依上方安裝環境、初始化及 seed；已有資料庫只需 seed 補缺，不要重新初始化。seed 不會將已出庫的數量恢復為 5。
+2. 啟動後端與前端，開啟 http://localhost:5173，倉管登入並點「倉管操作」。
+3. 選紅蘿蔔 `LOT-20260924-901`／B-03，確認原數 5 籠，輸入 2，按「確認出庫」。應顯示餘量 3 籠、異動編號，並新增一筆出庫紀錄；重新整理、再次進入倉管操作仍是 3 籠。
+4. 輸入 99、0、負數或小數，應被阻擋且紀錄不增加。若資料已操作過，依實際原數驗收扣量，不刪庫重演。
+5. 瀏覽器開發工具將網路調慢後，連點確認出庫；等待時表單停用，一次提交只有一筆 POST／OUTBOUND。這是同頁防連點，沒有伺服器冪等鍵。
+6. 模擬送出後斷線／逾時：畫面顯示「結果未確認」，不自動重送。恢復後按「查詢紀錄／更新餘量」，核對時間、位置、操作者、數量及備註；確認後才按「我已核對紀錄，開始新的操作」。查不到紀錄不代表原請求一定沒成功。
+7. D1 尚未合併，待審凍結以獨立測試資料驗證。合併 D1 後再由畫面建立同批次／儲位待審申請，回出庫頁更新，應顯示待審且不能提交。
+8. 手機驗收依「同一網址展示」啟動，手機登入操作出庫後，電腦按更新應看到同一餘量及紀錄。時間顯示為臺灣時間。
+
+後端檢查：`.\.venv\Scripts\python.exe -m pytest -q`；前端檢查：`npm.cmd --prefix frontend run build`。測試使用暫存 SQLite，不改本機展示庫存。
+
+可重跑的 Chrome 畫面檢查（須先完成前端 build，且已安裝 Chrome）：
+
+```powershell
+.\.venv\Scripts\python.exe -m pip install -r tests/requirements-browser.txt
+.\.venv\Scripts\python.exe -m tests.browser_c1
+```
+
+2026-09-25 C1 實測：後端 20 項測試通過（包含既有 A1／A2／A3），pip check 通過，TypeScript／Vite build 通過。Chrome 自動操作通過真實登入、非法數量、同頁連續提交只發一筆 POST、刷新保留餘量、已提交但回應中斷後核對紀錄、待審停用按鈕，以及 320／390／1280px 無橫向溢出，沒有 JavaScript 執行錯誤。實體手機連線仍需本人依上方步驟驗收。
+
+這台電腦已建立 `.venv`、安裝前端依賴並首次初始化／seed 展示資料庫，未使用展示資料庫跑出庫測試。Python 為 3.12.10；Node.js 系統安裝未完成，檢查使用官方 Node.js 24.19.0 免安裝版，放在 Git 忽略的 `data/c1-tools`。若新終端機仍找不到 npm，可先在專案根目錄執行以下指令，再使用本文的 npm 指令；其他組員若已有 Node.js 不需這一步。
+
+```powershell
+$env:Path = (Resolve-Path 'data/c1-tools/node-v24.19.0-win-x64').Path + ';' + $env:Path
+```
+
+C1 主要檔案為 `frontend/src/pages/OutboundPage.tsx`、`frontend/src/api/outbound.ts`、`backend/routes/outbound.py`、`backend/services/outbound_service.py`、`backend/schemas/outbound.py` 及 `tests/test_c1.py`。AI 協助實作與測試；C 應理解「表單 → 登入權限 → 同一交易檢查／扣量／異動 → 回傳資料庫結果」及連線不確定時的核對流程，操作驗收後再 Commit／Push 並回報 A，由 A 建立 PR。
 
 ## 檔案分工與交接
 
