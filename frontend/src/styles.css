@@ -37,4 +37,14 @@ input, select { width: 100%; min-height: 46px; padding: 9px 12px; border: 1px so
 .stats-placeholder { border-style: dashed; }
 article { display: grid; gap: 3px; padding: 14px; border-radius: 10px; background: #f1f6f4; }
 article span { color: #526b65; font-size: .92rem; }
+.outbound-panel { min-width: 0; overflow-wrap: anywhere; }
+.outbound-panel fieldset { display: grid; gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.outbound-panel select { min-width: 0; max-width: 100%; }
+.outbound-controls { display: grid; gap: 12px; margin-top: 20px; }
+.outbound-records { display: grid; gap: 12px; }
+.transfer-panel { min-width: 0; overflow-wrap: anywhere; }
+.transfer-panel fieldset { display: grid; gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.transfer-panel select { min-width: 0; max-width: 100%; }
+.transfer-controls { display: grid; gap: 12px; margin-top: 20px; }
+.transfer-records, .transfer-balances { display: grid; gap: 12px; }
 @media (max-width: 650px) { .app-shell { padding: 16px; } .top-nav { position: static; flex-wrap: wrap; } .nav-links { order: 3; flex-basis: 100%; overflow-x: auto; } .account span { display: none; } .form-row { grid-template-columns: 1fr; } }
