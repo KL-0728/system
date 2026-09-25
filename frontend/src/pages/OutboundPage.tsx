@@ -6,7 +6,9 @@ import type { BalanceOption } from '../types/stock';
 
 const keyOf = (balance: BalanceOption) => `${balance.lot_id}:${balance.location_id}`;
 
-export default function OutboundPage() {
+export default function OutboundPage({ refreshKey = 0, onStockChanged }: {
+  refreshKey?: number; onStockChanged?: () => void;
+}) {
   const [balances, setBalances] = useState<BalanceOption[]>([]);
   const [records, setRecords] = useState<OutboundRecord[]>([]);
   const [selectedKey, setSelectedKey] = useState('');
@@ -37,7 +39,7 @@ export default function OutboundPage() {
     } finally { setLoading(false); }
   }
 
-  useEffect(() => { void refresh(); }, []);
+  useEffect(() => { void refresh(); }, [refreshKey]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -55,6 +57,7 @@ export default function OutboundPage() {
       setBalances((rows) => rows.map((row) => keyOf(row) === selectedKey ? { ...row, qty: result.qty } : row));
       setSuccess(`${selected.product_name}／${selected.lot_code}／${selected.location_code} 出庫 ${amount} ${selected.unit}成功，餘量 ${result.qty} ${selected.unit}；異動編號 #${result.movement_id}。`);
       setQty(''); setNote('');
+      onStockChanged?.();
       await refresh();
     } catch (failure) {
       if (failure instanceof ApiError && [401, 403, 409, 422].includes(failure.status)) {

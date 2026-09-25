@@ -198,6 +198,16 @@ $env:Path = (Resolve-Path 'data/c1-tools/node-v24.19.0-win-x64').Path + ';' + $e
 
 C1 主要檔案為 `frontend/src/pages/OutboundPage.tsx`、`frontend/src/api/outbound.ts`、`backend/routes/outbound.py`、`backend/services/outbound_service.py`、`backend/schemas/outbound.py` 及 `tests/test_c1.py`。AI 協助實作與測試；C 應理解「表單 → 登入權限 → 同一交易檢查／扣量／異動 → 回傳資料庫結果」及連線不確定時的核對流程，操作驗收後再 Commit／Push 並回報 A，由 A 建立 PR。
 
+## C2 移位與操作驗收
+
+以 `worker`／`worker1234` 登入，進入「倉管操作」的「移位」區塊。先選來源批次及儲位，再選不同的啟用目標儲位並輸入正整數數量。畫面顯示來源、目標同批餘量和同批各處合計；提交成功後顯示兩處新餘量與異動編號，並更新出庫可用餘量。管理者可讀移位紀錄，但不能提交移位。
+
+`POST /api/outbound/transfers` 僅限 WORKER，輸入 `lot_id, from_location_id, to_location_id, qty`，成功回傳 `from_qty, to_qty, movement_id` 及位置、批次 ID。`GET /api/outbound/transfers` 兩種角色可讀，可用 `lot_id` 篩選，回傳最近 100 筆移位及操作者與 UTC 時間；這是 C2 核對用紀錄，完整異動查詢仍由 B2 負責。未登入回 401，非 WORKER 寫入回 403，數量／ID 格式不符回 422，超量、同位置、停用目標、來源或既有目標同批待審回 409，失敗不更動餘量或紀錄。移位寫入使用同一次 `stock_transaction()`，來源歸零列保留。
+
+驗收時可選種子批次 `LOT-20260924-901` 的 B-03 作來源（初始為 5 籠），B-04 作目標，移 2 籠後應為 B-03 3 籠、B-04 2 籠，合計仍是 5 籠，最近移位紀錄新增一筆。重新整理後再核對。若示範庫存已被操作，請依畫面上的實際原數核對，不要重置資料庫。再試超量、同一儲位、0 或小數，應拒絕且紀錄不增加。等待回應時表單停用；若連線中斷造成結果未確認，先按「查詢移位紀錄／更新餘量」核對時間、批次、兩處位置、數量和操作者，確認後才開始新的操作。待審來源或既有目標的凍結須在 D1 合併後從畫面建立申請驗收，目前由 `tests/test_c2.py` 驗證。
+
+後端檢查：`.\.venv\Scripts\python.exe -m pytest -q`；前端檢查：`npm.cmd --prefix frontend run build`。本片段的測試使用暫存 SQLite，不修改本機展示資料庫。實體手機仍須依上方「同一網址展示」方式連線驗收。
+
 ## 檔案分工與交接
 
 - frontend/src/pages：頁面；components：共用元件預留。
