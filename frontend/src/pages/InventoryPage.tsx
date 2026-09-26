@@ -57,7 +57,7 @@ function InventoryLot({ positions }: { positions: InventoryBalance[] }) {
   </article>;
 }
 
-export default function InventoryPage() {
+export default function InventoryPage({ refreshKey = 0 }: { refreshKey?: number }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [rows, setRows] = useState<InventoryBalance[]>([]);
@@ -93,6 +93,10 @@ export default function InventoryPage() {
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
   }, []);
+
+  useEffect(() => {
+    if (refreshKey > 0) void runSearch(filters());
+  }, [refreshKey]);
 
   function filters(): InventoryFilters {
     return {

@@ -20,11 +20,14 @@ _RECORD_SQL = """
            requests.location_id, locations.code AS location_code,
            requests.original_qty, requests.observed_qty, requests.damaged_qty,
            requests.reason, requests.status,
-           strftime('%Y-%m-%dT%H:%M:%SZ', requests.created_at) AS created_at
+           strftime('%Y-%m-%dT%H:%M:%SZ', requests.created_at) AS created_at,
+           reviewer.display_name AS reviewer_name, requests.review_note,
+           strftime('%Y-%m-%dT%H:%M:%SZ', requests.reviewed_at) AS reviewed_at
     FROM adjustment_requests AS requests
     JOIN lots ON lots.id = requests.lot_id
     JOIN products ON products.id = lots.product_id
     JOIN locations ON locations.id = requests.location_id
+    LEFT JOIN users AS reviewer ON reviewer.id = requests.reviewed_by
 """
 
 _DETAIL_SQL = """
@@ -90,6 +93,14 @@ def list_pending_adjustments() -> list[AdjustmentDetail]:
     with connect_database() as connection:
         rows = connection.execute(
             _DETAIL_SQL + " WHERE requests.status = 'PENDING' ORDER BY requests.id ASC"
+        ).fetchall()
+    return [AdjustmentDetail(**dict(row)) for row in rows]
+
+
+def list_reviewed_adjustments() -> list[AdjustmentDetail]:
+    with connect_database() as connection:
+        rows = connection.execute(
+            _DETAIL_SQL + " WHERE requests.status != 'PENDING' ORDER BY requests.reviewed_at DESC, requests.id DESC LIMIT 100"
         ).fetchall()
     return [AdjustmentDetail(**dict(row)) for row in rows]
 

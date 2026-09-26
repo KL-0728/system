@@ -79,8 +79,8 @@ export default function OutboundPage({ refreshKey = 0, onStockChanged }: {
       <fieldset disabled={busy || loading || uncertain}>
         <label>批次與儲位<select required value={selectedKey} onChange={(event) => { setSelectedKey(event.target.value); setQty(''); setSuccess(''); }}>
           <option value="">請選擇批次與儲位</option>
-          {balances.map((row) => <option key={keyOf(row)} value={keyOf(row)}>
-            {row.product_name}／{row.lot_code}／{row.location_code}：{row.qty} {row.unit}{row.has_pending ? '（待審凍結）' : ''}
+          {balances.map((row) => <option key={keyOf(row)} value={keyOf(row)} disabled={row.has_pending || row.qty === 0}>
+            {row.product_name}／{row.lot_code}／{row.location_code}：{row.qty} {row.unit}{row.has_pending ? '（待審，暫不可選）' : row.qty === 0 ? '（無可出庫數量）' : ''}
           </option>)}
         </select></label>
         {!loading && balances.length === 0 && <p>目前沒有庫存資料。</p>}

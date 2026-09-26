@@ -1,4 +1,6 @@
 import { FormEvent, useEffect, useState } from 'react';
+import BackToTop from '../components/BackToTop';
+import QuickJump from '../components/QuickJump';
 import { createLocation, createProduct, getLocations, getProducts, getWarehouses, updateLocation, updateProduct } from '../api/masterData';
 import type { Location, Product, Warehouse } from '../types/masterData';
 
@@ -52,8 +54,10 @@ export default function SettingsPage() {
     : '尚未輸入';
   const productQuantityInvalid = product.target_qty < product.min_qty;
 
-  return <main className="app-shell"><p className="eyebrow">管理者設定</p><h1>品項與儲位</h1>{pageMessage && <p className="notice error" role="alert">{pageMessage}</p>}
-    <section className="card"><h2>{productId === null ? '新增品項' : '編輯品項'}</h2>{productMessage && <p className="notice" role="status">{productMessage}</p>}<form onSubmit={saveProduct}>
+  return <main className="app-shell"><p className="eyebrow">管理者設定</p><h1>品項與儲位</h1>
+    <QuickJump items={[{ id: 'settings-products', label: '品項管理' }, { id: 'settings-locations', label: '儲位管理' }]} />
+    {pageMessage && <p className="notice error" role="alert">{pageMessage}</p>}
+    <section id="settings-products" className="card jump-target"><h2>{productId === null ? '新增品項' : '編輯品項'}</h2>{productMessage && <p className="notice" role="status">{productMessage}</p>}<form onSubmit={saveProduct}>
       <label>名稱<input value={product.name} onChange={(event) => setProduct({ ...product, name: event.target.value })} required /></label>
       <label>單位<input value={product.unit} onChange={(event) => setProduct({ ...product, unit: event.target.value })} required /></label>
       <div className="form-row"><label>最低量<input type="number" min="0" step="1" value={product.min_qty} onChange={(event) => setProduct({ ...product, min_qty: Number(event.target.value) })} required /></label><label>目標量<input type="number" min={product.min_qty} step="1" value={product.target_qty} onChange={(event) => setProduct({ ...product, target_qty: Number(event.target.value) })} aria-describedby="quantity-rule" required /></label></div>
@@ -61,12 +65,13 @@ export default function SettingsPage() {
       <label className="check"><input type="checkbox" checked={product.is_active} onChange={(event) => setProduct({ ...product, is_active: event.target.checked })} />啟用</label>
       <div className="button-row"><button disabled={busy || productQuantityInvalid}>儲存品項</button>{productId !== null && <button type="button" className="secondary" onClick={() => { setProductId(null); setProduct(emptyProduct); }}>取消編輯</button>}</div>
     </form><div className="manage-list">{products.map((item) => <article key={item.id}><div><strong>{item.name}</strong><span>{item.unit} · 最低 {item.min_qty} · 目標 {item.target_qty} · {item.is_active ? '啟用' : '停用'}</span></div><button className="secondary" onClick={() => editProduct(item)}>編輯</button></article>)}</div></section>
-    <section className="card"><h2>{locationId === null ? '新增儲位' : '編輯儲位'}</h2>{locationMessage && <p className="notice" role="status">{locationMessage}</p>}<form onSubmit={saveLocation}>
+    <section id="settings-locations" className="card jump-target"><h2>{locationId === null ? '新增儲位' : '編輯儲位'}</h2>{locationMessage && <p className="notice" role="status">{locationMessage}</p>}<form onSubmit={saveLocation}>
       <label>冷凍庫<select value={location.warehouse_id} onChange={(event) => setLocation({ ...location, warehouse_id: Number(event.target.value) })}>{warehouses.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       <label>儲位編號<input type="number" min="1" max="99" step="1" value={location.number} onChange={(event) => setLocation({ ...location, number: event.target.value })} placeholder="例如：3，系統會建立 B-03" required /></label>
       <p className="hint">完整儲位代碼：{locationPreview}</p>
       <label className="check"><input type="checkbox" checked={location.is_active} onChange={(event) => setLocation({ ...location, is_active: event.target.checked })} />啟用</label>
       <div className="button-row"><button disabled={busy || !location.warehouse_id}>儲存儲位</button>{locationId !== null && <button type="button" className="secondary" onClick={() => { setLocationMessage(''); setLocationId(null); setLocation({ warehouse_id: warehouses[0]?.id || 0, number: '', is_active: true }); }}>取消編輯</button>}</div>
     </form><div className="manage-list">{locations.map((item) => <article key={item.id}><div><strong>{item.code}</strong><span>{item.warehouse_name} · {item.is_active ? '啟用' : '停用'}</span></div><button className="secondary" onClick={() => editLocation(item)}>編輯</button></article>)}</div></section>
+    <BackToTop />
   </main>;
 }
