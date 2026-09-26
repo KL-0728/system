@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { releaseFormFocus } from '../utils/formFocus';
+import { smoothScrollTo } from '../utils/smoothScroll';
 import { ApiError } from '../api/client';
 import { getInboundRecords, submitInbound, type InboundRecord } from '../api/inventory';
 import { getProducts } from '../api/masterData';
@@ -26,6 +27,7 @@ export default function InboundPage({ onStockChanged }: { onStockChanged?: () =>
   const [success, setSuccess] = useState('');
   const [uncertain, setUncertain] = useState(false);
   const inFlight = useRef(false);
+  const resultRef = useRef<HTMLParagraphElement>(null);
   const product = products.find((row) => row.id === Number(productId));
   const location = locations.find((row) => row.location_id === Number(locationId));
 
@@ -43,6 +45,7 @@ export default function InboundPage({ onStockChanged }: { onStockChanged?: () =>
   }
 
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => { if (success) smoothScrollTo(resultRef.current); }, [success]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -79,7 +82,7 @@ export default function InboundPage({ onStockChanged }: { onStockChanged?: () =>
     <h2 id="inbound-title">入庫</h2>
     <p className="hint">選擇品項與一個儲位，輸入數量與入庫日期；批次編號由系統產生。同一批要放多處，請入庫後再用移位分拆。</p>
     {error && <p role="alert" className="error">{error}</p>}
-    {success && <p role="status" className="notice">{success}</p>}
+    {success && <p ref={resultRef} role="status" className="notice">{success}</p>}
     {loading && <p role="status">正在更新品項、儲位與紀錄…</p>}
     <form onSubmit={handleSubmit}>
       <fieldset disabled={busy || loading || uncertain}>

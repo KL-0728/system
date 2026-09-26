@@ -3,6 +3,7 @@ import { ApiError } from '../api/client';
 import { getProducts } from '../api/masterData';
 import { createShortageDemand, getShortageDemands, type ShortageDemand } from '../api/shortages';
 import type { Product } from '../types/masterData';
+import { smoothScrollTo } from '../utils/smoothScroll';
 import { releaseFormFocus } from '../utils/formFocus';
 
 export default function ShortagePage() {
@@ -17,6 +18,7 @@ export default function ShortagePage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const inFlight = useRef(false);
+  const resultRef = useRef<HTMLParagraphElement>(null);
   const product = products.find((item) => item.id === Number(productId));
 
   async function refresh() {
@@ -31,6 +33,7 @@ export default function ShortagePage() {
   }
 
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => { if (success) smoothScrollTo(resultRef.current); }, [success]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -60,7 +63,7 @@ export default function ShortagePage() {
     <h2 id="shortage-title">缺貨需求紀錄</h2>
     <p className="hint">客人想買但沒有成交時，記下品項與詢問數量；即使目前庫存為 0 也可記錄。這不是訂單或出庫，不會變動庫存。</p>
     {error && <p className="error" role="alert">{error}</p>}
-    {success && <p className="notice" role="status">{success}</p>}
+    {success && <p ref={resultRef} className="notice" role="status">{success}</p>}
     <form onSubmit={submit}>
       <fieldset disabled={busy || loading || uncertain}>
         <label>品項<select required value={productId} onChange={(event) => setProductId(event.target.value)}>

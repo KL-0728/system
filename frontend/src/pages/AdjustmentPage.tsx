@@ -4,6 +4,8 @@ import { ApiError } from '../api/client';
 import { getBalanceOptions } from '../api/stockOptions';
 import type { BalanceOption } from '../types/stock';
 import { releaseFormFocus } from '../utils/formFocus';
+import { stockOptionLabel } from '../utils/stockOptionLabel';
+import { smoothScrollTo } from '../utils/smoothScroll';
 
 const keyOf = (row: BalanceOption) => `${row.lot_id}:${row.location_id}`;
 const statusLabel = { PENDING: '待審', APPROVED: '已核准', REJECTED: '已駁回' };
@@ -24,6 +26,7 @@ export default function AdjustmentPage({ refreshKey = 0, onRequestCreated }: {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const inFlight = useRef(false);
+  const resultRef = useRef<HTMLParagraphElement>(null);
   const selected = balances.find((row) => keyOf(row) === selectedKey);
 
   async function refresh() {
@@ -38,6 +41,7 @@ export default function AdjustmentPage({ refreshKey = 0, onRequestCreated }: {
   }
 
   useEffect(() => { void refresh(); }, [refreshKey]);
+  useEffect(() => { if (success) smoothScrollTo(resultRef.current); }, [success]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -78,18 +82,18 @@ export default function AdjustmentPage({ refreshKey = 0, onRequestCreated }: {
     <h2 id="adjustment-title">盤點／損耗申請</h2>
     <p className="hint">倉管填寫現場實數或報廢量及原因。送件後由管理者審核；待審期間帳面餘量不變，同批次與儲位暫停異動。</p>
     {error && <p role="alert" className="error">{error}</p>}
-    {success && <p role="status" className="notice">{success}</p>}
+    {success && <p ref={resultRef} role="status" className="notice">{success}</p>}
     {loading && <p role="status">正在更新庫存與申請紀錄…</p>}
     <form onSubmit={handleSubmit}>
       <fieldset disabled={busy || loading || !ready || uncertain}>
         <label>批次與儲位<select required value={selectedKey} onChange={(event) => { setSelectedKey(event.target.value); setAmount(''); setError(''); setSuccess(''); }}>
           <option value="">請選擇批次與儲位</option>
           {balances.map((row) => <option key={keyOf(row)} value={keyOf(row)} disabled={row.has_pending}>
-            {row.product_name}／{row.lot_code}／{row.location_code}：{row.qty} {row.unit}{row.has_pending ? '（待審，暫不可選）' : ''}
+            {stockOptionLabel(row)}
           </option>)}
         </select></label>
         {ready && balances.length === 0 && <p>目前沒有可申請的批次與儲位庫存。</p>}
-        {selected && <p className="notice">帳面餘量：{selected.qty} {selected.unit}{selected.has_pending && '（已有待審申請）'}</p>}
+        {selected && <p className="notice">{selected.product_name}／{selected.lot_code}／{selected.location_code}<br />帳面餘量：{selected.qty} {selected.unit}{selected.has_pending && '（已有待審申請）'}</p>}
         <label>申請種類<select value={kind} onChange={(event) => { setKind(event.target.value as 'COUNT' | 'SCRAP'); setAmount(''); setError(''); }}>
           <option value="COUNT">盤點：填現場實數</option>
           <option value="SCRAP">損耗：填報廢量</option>

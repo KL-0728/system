@@ -1,6 +1,7 @@
 """Four optional features in a real browser, using only a temporary SQLite database."""
 from datetime import timedelta
 from pathlib import Path
+import sys
 import tempfile
 import threading
 import time
@@ -25,7 +26,19 @@ def login(page, username):
 
 def no_overflow(page, width):
     page.set_viewport_size({"width": width, "height": 844})
-    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth"), f"overflow at {width}px"
+    page.wait_for_timeout(500)
+    dimensions = page.evaluate("""() => ({
+      viewport: window.innerWidth,
+      scrollX: window.scrollX,
+      document: document.documentElement.scrollWidth,
+      body: document.body.scrollWidth,
+      offenders: [...document.querySelectorAll('*')]
+        .filter(el => el.getBoundingClientRect().right > window.innerWidth + 1 || el.getBoundingClientRect().left < -1 || el.scrollWidth > el.clientWidth + 1)
+        .slice(0, 15).map(el => ({tag: el.tagName, class: el.className,
+          text: el.textContent?.trim().slice(0, 35), left: el.getBoundingClientRect().left, right: el.getBoundingClientRect().right,
+          width: el.scrollWidth, client: el.clientWidth}))
+    })""")
+    assert dimensions["document"] <= dimensions["viewport"], f"overflow at {width}px: {dimensions}"
 
 
 def run():
@@ -53,13 +66,22 @@ def run():
                 time.sleep(.1)
             assert server.started, "test server did not start"
             with sync_playwright() as playwright:
-                browser = playwright.chromium.launch(channel="chrome", headless=True)
+                browser = (playwright.webkit.launch(headless=True) if "--webkit" in sys.argv
+                           else playwright.chromium.launch(channel="chrome", headless=True))
                 try:
-                    worker = browser.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True)
+                    mobile_options = {"is_mobile": True, "has_touch": True, "device_scale_factor": 3} if "--webkit" in sys.argv else {}
+                    worker = browser.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True, **mobile_options)
                     page = worker.new_page()
                     errors = []
                     page.on("pageerror", lambda error: errors.append(str(error)))
                     login(page, "worker")
+                    page.evaluate("window.scrollTo(0, 0)")
+                    page.get_by_role("navigation", name="快速前往功能").get_by_role("button", name="移位", exact=True).click()
+                    page.wait_for_timeout(80)
+                    halfway = page.evaluate("window.scrollY")
+                    page.wait_for_timeout(750)
+                    destination = page.evaluate("window.scrollY")
+                    assert 0 < halfway < destination, f"quick jump did not animate: {halfway}, {destination}"
                     shortage = page.locator(".shortage-panel")
                     shortage.get_by_label("品項").select_option(str(product_id))
                     shortage.get_by_label("詢問數量").fill("3")
@@ -82,7 +104,7 @@ def run():
                     transfer.get_by_label("目標儲位").select_option(str(target_id))
                     transfer.get_by_label("移位數量").fill("1")
                     transfer.get_by_role("button", name="確認移位").click()
-                    expect(transfer.get_by_role("status")).to_contain_text("移位 1 籠成功")
+                    expect(transfer.locator('.notice[role="status"]')).to_contain_text("移位 1 籠成功")
                     location_map.get_by_role("button", name="A-01").click()
                     expect(location_map.locator(".location-map-detail")).to_contain_text("紅蘿蔔")
                     expect(location_map.locator(".location-map-detail")).to_contain_text("1 籠")
@@ -104,7 +126,7 @@ def run():
                                 (pending_lot, pending_location, quantity, quantity, worker_id))
                         connection.commit()
 
-                    admin = browser.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True)
+                    admin = browser.new_context(viewport={"width": 390, "height": 844}, accept_downloads=True, **mobile_options)
                     admin_page = admin.new_page()
                     admin_page.on("pageerror", lambda error: errors.append(str(error)))
                     login(admin_page, "admin")

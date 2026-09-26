@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { smoothScrollTo } from '../utils/smoothScroll';
 
 export default function BackToTop() {
   const [visible, setVisible] = useState(false);
@@ -12,5 +13,5 @@ export default function BackToTop() {
 
   if (!visible) return null;
   return <button type="button" className="back-to-top" aria-label="回到頁面頂部" title="回到頁面頂部"
-    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}>↑<span>頂部</span></button>;
+    onClick={() => smoothScrollTo(document.body)}>↑<span>頂部</span></button>;
 }

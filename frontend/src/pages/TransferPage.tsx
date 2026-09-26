@@ -4,6 +4,8 @@ import { getBalanceOptions, getStockLocationOptions } from '../api/stockOptions'
 import { getTransferRecords, submitTransfer, type TransferRecord } from '../api/transfer';
 import type { BalanceOption, StockLocationOption } from '../types/stock';
 import { releaseFormFocus } from '../utils/formFocus';
+import { stockOptionLabel } from '../utils/stockOptionLabel';
+import { smoothScrollTo } from '../utils/smoothScroll';
 
 const keyOf = (row: BalanceOption) => `${row.lot_id}:${row.location_id}`;
 
@@ -23,6 +25,7 @@ export default function TransferPage({ refreshKey = 0, onStockChanged }: {
   const [success, setSuccess] = useState('');
   const [uncertain, setUncertain] = useState(false);
   const inFlight = useRef(false);
+  const resultRef = useRef<HTMLParagraphElement>(null);
   const source = balances.find((row) => keyOf(row) === sourceKey);
   const target = locations.find((row) => row.location_id === Number(targetId));
   const targetBalance = balances.find((row) => row.lot_id === source?.lot_id && row.location_id === Number(targetId));
@@ -42,6 +45,7 @@ export default function TransferPage({ refreshKey = 0, onStockChanged }: {
   }
 
   useEffect(() => { void refresh(); }, [refreshKey]);
+  useEffect(() => { if (success) smoothScrollTo(resultRef.current); }, [success]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -81,7 +85,7 @@ export default function TransferPage({ refreshKey = 0, onStockChanged }: {
     <h2 id="transfer-title">移位</h2>
     <p className="hint">選擇同批貨物的來源與目標。移位只改變位置，總量不變。</p>
     {error && <p role="alert" className="error">{error}</p>}
-    {success && <p role="status" className="notice">{success}</p>}
+    {success && <p ref={resultRef} role="status" className="notice">{success}</p>}
     {loading && <p role="status">正在更新移位資料…</p>}
     <form onSubmit={handleSubmit}>
       <fieldset disabled={busy || loading || !ready || uncertain}>
@@ -90,7 +94,7 @@ export default function TransferPage({ refreshKey = 0, onStockChanged }: {
         }}>
           <option value="">請選擇來源</option>
           {balances.map((row) => <option key={keyOf(row)} value={keyOf(row)} disabled={row.has_pending || row.qty === 0}>
-            {row.product_name}／{row.lot_code}／{row.location_code}：{row.qty} {row.unit}{row.has_pending ? '（待審，暫不可選）' : row.qty === 0 ? '（無可移位數量）' : ''}
+            {stockOptionLabel(row)}
           </option>)}
         </select></label>
         {ready && !balances.some((row) => row.qty > 0) && <p>目前沒有可移位的正餘量庫存。</p>}
@@ -98,10 +102,10 @@ export default function TransferPage({ refreshKey = 0, onStockChanged }: {
           <option value="">請選擇啟用儲位</option>
           {locations.map((location) => {
             const pending = balances.some((row) => row.lot_id === source?.lot_id && row.location_id === location.location_id && row.has_pending);
-            return <option key={location.location_id} value={location.location_id} disabled={pending}>{location.location_code}{pending ? '（同批待審，暫不可選）' : ''}</option>;
+            return <option key={location.location_id} value={location.location_id} disabled={pending}>{location.location_code}{pending ? '／待審' : ''}</option>;
           })}
         </select></label>
-        {source && <p>來源：{source.qty} {source.unit}{source.has_pending && '（待審凍結）'}；目標同批：{targetBalance?.qty ?? 0} {source.unit}{targetBalance?.has_pending && '（待審凍結）'}</p>}
+        {source && <p>批次：{source.product_name}／{source.lot_code}／{source.location_code}<br />來源：{source.qty} {source.unit}{source.has_pending && '（待審凍結）'}；目標同批：{targetBalance?.qty ?? 0} {source.unit}{targetBalance?.has_pending && '（待審凍結）'}</p>}
         {sameLocation && <p className="field-error">來源與目標儲位不可相同。</p>}
         {(source?.has_pending || targetBalance?.has_pending) && <p className="field-error">來源或目標的同批次庫存待審，不能移位。</p>}
         <label>移位數量<input type="number" inputMode="numeric" required min="1" step="1" max={source?.qty} value={qty} onChange={(event) => setQty(event.target.value)} /></label>

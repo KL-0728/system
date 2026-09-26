@@ -3,6 +3,7 @@ import { getLocations, getWarehouses } from '../api/masterData';
 import { searchInventory } from '../api/inventorySearch';
 import type { Location, Warehouse } from '../types/masterData';
 import type { InventoryBalance } from '../types/inventory';
+import { smoothScrollTo } from '../utils/smoothScroll';
 
 export default function LocationMapPage({ refreshKey = 0 }: { refreshKey?: number }) {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -26,10 +27,10 @@ export default function LocationMapPage({ refreshKey = 0 }: { refreshKey?: numbe
 
   useEffect(() => { void refresh(); }, [refreshKey]);
   useEffect(() => {
-    if (selectedId !== null) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (selectedId !== null) smoothScrollTo(detailRef.current);
   }, [selectedId]);
   function selectLocation(id: number) {
-    if (selectedId === id) detailRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    if (selectedId === id) smoothScrollTo(detailRef.current);
     else setSelectedId(id);
   }
   const selected = locations.find((item) => item.id === selectedId);

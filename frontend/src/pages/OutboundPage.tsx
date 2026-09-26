@@ -4,6 +4,8 @@ import { getOutboundRecords, submitOutbound, type OutboundRecord } from '../api/
 import { getBalanceOptions } from '../api/stockOptions';
 import type { BalanceOption } from '../types/stock';
 import { releaseFormFocus } from '../utils/formFocus';
+import { stockOptionLabel } from '../utils/stockOptionLabel';
+import { smoothScrollTo } from '../utils/smoothScroll';
 
 const keyOf = (balance: BalanceOption) => `${balance.lot_id}:${balance.location_id}`;
 
@@ -22,6 +24,7 @@ export default function OutboundPage({ refreshKey = 0, onStockChanged }: {
   const [uncertain, setUncertain] = useState(false);
   const [checked, setChecked] = useState(false);
   const inFlight = useRef(false);
+  const resultRef = useRef<HTMLParagraphElement>(null);
   const selected = balances.find((row) => keyOf(row) === selectedKey);
 
   async function refresh() {
@@ -41,6 +44,7 @@ export default function OutboundPage({ refreshKey = 0, onStockChanged }: {
   }
 
   useEffect(() => { void refresh(); }, [refreshKey]);
+  useEffect(() => { if (success) smoothScrollTo(resultRef.current); }, [success]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -75,18 +79,18 @@ export default function OutboundPage({ refreshKey = 0, onStockChanged }: {
     <h2 id="outbound-title">出庫</h2>
     <p className="hint">選擇現有批次與儲位，確認數量後出庫。下方可查詢最近 100 筆出庫紀錄。</p>
     {error && <p role="alert" className="error">{error}</p>}
-    {success && <p role="status" className="notice">{success}</p>}
+    {success && <p ref={resultRef} role="status" className="notice">{success}</p>}
     {loading && <p role="status">正在更新庫存與紀錄…</p>}
     <form onSubmit={handleSubmit}>
       <fieldset disabled={busy || loading || uncertain}>
         <label>批次與儲位<select required value={selectedKey} onChange={(event) => { setSelectedKey(event.target.value); setQty(''); setSuccess(''); }}>
           <option value="">請選擇批次與儲位</option>
           {balances.map((row) => <option key={keyOf(row)} value={keyOf(row)} disabled={row.has_pending || row.qty === 0}>
-            {row.product_name}／{row.lot_code}／{row.location_code}：{row.qty} {row.unit}{row.has_pending ? '（待審，暫不可選）' : row.qty === 0 ? '（無可出庫數量）' : ''}
+            {stockOptionLabel(row)}
           </option>)}
         </select></label>
         {!loading && balances.length === 0 && <p>目前沒有庫存資料。</p>}
-        {selected && <p className="notice">{selected.product_name}｜{selected.location_code}｜入庫日 {selected.received_date}<br />目前餘量：{selected.qty} {selected.unit}{selected.has_pending && '（待審凍結，不能出庫）'}</p>}
+        {selected && <p className="notice">{selected.product_name}｜{selected.lot_code}｜{selected.location_code}｜入庫日 {selected.received_date}<br />目前餘量：{selected.qty} {selected.unit}{selected.has_pending && '（待審凍結，不能出庫）'}</p>}
         <label>出庫數量<input type="number" inputMode="numeric" min="1" step="1" max={selected?.qty} required value={qty} onChange={(event) => setQty(event.target.value)} /></label>
         <label>備註（選填，最多 500 字）<input maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} /></label>
         <button type="submit" disabled={!selected || selected.has_pending || selected.qty === 0}>{busy ? '出庫處理中…' : '確認出庫'}</button>
