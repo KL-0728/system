@@ -5,20 +5,38 @@ import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import OperationsPage from './pages/OperationsPage';
 import SettingsPage from './pages/SettingsPage';
+import ReviewPage from './pages/ReviewPage';
+import ReportsPage from './pages/ReportsPage';
 import type { CurrentUser } from './types/auth';
 
 export default function App() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState<PageName>('home');
+  const [page, setPage] = useState<PageName>(() => window.location.hash === '#reviews' ? 'reviews' : window.location.hash === '#reports' ? 'reports' : 'home');
   const [loggingOut, setLoggingOut] = useState(false);
   useEffect(() => { getCurrentUser().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false)); }, []);
-  async function handleLogout() { setLoggingOut(true); try { await logout(); setUser(null); setPage('home'); } finally { setLoggingOut(false); } }
+  useEffect(() => {
+    const onHashChange = () => {
+      if (window.location.hash === '#reviews') setPage('reviews');
+      else if (window.location.hash === '#reports') setPage('reports');
+      else setPage((current) => current === 'reviews' || current === 'reports' ? 'home' : current);
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+  function handleNavigate(next: PageName) {
+    if (next === 'reviews' || next === 'reports') window.location.hash = next;
+    else if (window.location.hash === '#reviews' || window.location.hash === '#reports') window.history.replaceState(null, '', window.location.pathname + window.location.search);
+    setPage(next);
+  }
+  async function handleLogout() { setLoggingOut(true); try { await logout(); setUser(null); handleNavigate('home'); } finally { setLoggingOut(false); } }
   if (loading) return <main><p role="status">正在確認登入狀態…</p></main>;
   if (!user) return <LoginPage onLogin={setUser} />;
-  return <><Navigation user={user} page={page} onNavigate={setPage} onLogout={handleLogout} busy={loggingOut} />
+  return <><Navigation user={user} page={page} onNavigate={handleNavigate} onLogout={handleLogout} busy={loggingOut} />
     {page === 'home' && <HomePage user={user} />}
     {page === 'operations' && <OperationsPage role={user.role} />}
     {page === 'settings' && user.role === 'ADMIN' && <SettingsPage />}
+    {page === 'reviews' && (user.role === 'ADMIN' ? <ReviewPage /> : <main className="app-shell"><h1>權限不足</h1><p>管理者審核頁僅供管理者使用。</p></main>)}
+    {page === 'reports' && (user.role === 'ADMIN' ? <ReportsPage /> : <main className="app-shell"><h1>權限不足</h1><p>管理者報表僅供管理者使用。</p></main>)}
   </>;
 }
