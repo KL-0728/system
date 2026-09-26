@@ -7,7 +7,7 @@ from backend.schemas.adjustment import (
 )
 from backend.services.adjustment_service import (
     create_adjustment, get_adjustment_detail, list_my_adjustments,
-    list_pending_adjustments, review_adjustment,
+    list_pending_adjustments, list_reviewed_adjustments, review_adjustment,
 )
 from backend.services.auth_service import AuthenticatedUser
 from backend.services.stock_service import StockError
@@ -38,6 +38,13 @@ def pending_adjustments(
     _: AuthenticatedUser = Depends(require_admin),
 ) -> list[AdjustmentDetail]:
     return list_pending_adjustments()
+
+
+@router.get("/reviewed", response_model=list[AdjustmentDetail])
+def reviewed_adjustments(
+    _: AuthenticatedUser = Depends(require_admin),
+) -> list[AdjustmentDetail]:
+    return list_reviewed_adjustments()
 
 
 @router.get("/{request_id}", response_model=AdjustmentDetail)

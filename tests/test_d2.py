@@ -148,6 +148,32 @@ def test_scrap_approval_and_rejection(client: TestClient):
     assert submit_count(client, 4)["original_qty"] == 4
 
 
+def test_reviewed_history_survives_refresh_and_worker_sees_rejection_reason(client: TestClient):
+    assert client.get("/api/adjustments/reviewed").status_code == 401
+    login(client)
+    first = submit_count(client, 5)
+    assert client.get("/api/adjustments/reviewed").status_code == 403
+    login(client, "admin")
+    assert client.get("/api/adjustments/reviewed").json() == []
+    assert review(client, first["id"], note="數量核對無誤").status_code == 200
+    login(client)
+    second = submit_count(client, 4)
+    login(client, "admin")
+    assert review(client, second["id"], "REJECT", "請重新盤點").status_code == 200
+    assert client.get("/api/adjustments/pending").json() == []
+    history = client.get("/api/adjustments/reviewed").json()
+    assert [row["id"] for row in history] == [second["id"], first["id"]]
+    assert [row["status"] for row in history] == ["REJECTED", "APPROVED"]
+    assert history[0]["review_note"] == "請重新盤點"
+    assert history[1]["review_note"] == "數量核對無誤"
+    login(client)
+    mine = client.get("/api/adjustments/mine").json()
+    assert [row["id"] for row in mine] == [second["id"], first["id"]]
+    assert mine[0]["review_note"] == "請重新盤點"
+    assert mine[0]["reviewer_name"] and mine[0]["reviewed_at"].endswith("Z")
+    assert mine[1]["review_note"] == "數量核對無誤"
+
+
 def test_permission_self_review_and_invalid_input(client: TestClient):
     assert client.get("/api/adjustments/pending").status_code == 401
     assert client.get("/api/adjustments/1").status_code == 401

@@ -87,8 +87,8 @@ export default function TransferPage({ refreshKey = 0, onStockChanged }: {
           setSourceKey(event.target.value); setTargetId(''); setQty(''); setSuccess(''); setError('');
         }}>
           <option value="">請選擇來源</option>
-          {balances.map((row) => <option key={keyOf(row)} value={keyOf(row)}>
-            {row.product_name}／{row.lot_code}／{row.location_code}：{row.qty} {row.unit}{row.has_pending ? '（待審凍結）' : ''}
+          {balances.map((row) => <option key={keyOf(row)} value={keyOf(row)} disabled={row.has_pending || row.qty === 0}>
+            {row.product_name}／{row.lot_code}／{row.location_code}：{row.qty} {row.unit}{row.has_pending ? '（待審，暫不可選）' : row.qty === 0 ? '（無可移位數量）' : ''}
           </option>)}
         </select></label>
         {ready && !balances.some((row) => row.qty > 0) && <p>目前沒有可移位的正餘量庫存。</p>}
@@ -96,7 +96,7 @@ export default function TransferPage({ refreshKey = 0, onStockChanged }: {
           <option value="">請選擇啟用儲位</option>
           {locations.map((location) => {
             const pending = balances.some((row) => row.lot_id === source?.lot_id && row.location_id === location.location_id && row.has_pending);
-            return <option key={location.location_id} value={location.location_id}>{location.location_code}{pending ? '（同批待審凍結）' : ''}</option>;
+            return <option key={location.location_id} value={location.location_id} disabled={pending}>{location.location_code}{pending ? '（同批待審，暫不可選）' : ''}</option>;
           })}
         </select></label>
         {source && <p>來源：{source.qty} {source.unit}{source.has_pending && '（待審凍結）'}；目標同批：{targetBalance?.qty ?? 0} {source.unit}{targetBalance?.has_pending && '（待審凍結）'}</p>}

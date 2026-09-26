@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
+import BackToTop from '../components/BackToTop';
+import QuickJump from '../components/QuickJump';
 import {
-  getAdjustmentDetail, getPendingAdjustments, reviewAdjustment,
+  getAdjustmentDetail, getPendingAdjustments, getReviewedAdjustments, reviewAdjustment,
   type AdjustmentDetail,
 } from '../api/adjustments';
 import { ApiError } from '../api/client';
@@ -9,6 +11,7 @@ const timeText = (value: string) => new Date(value).toLocaleString('zh-TW', { ti
 
 export default function ReviewPage() {
   const [pending, setPending] = useState<AdjustmentDetail[]>([]);
+  const [reviewed, setReviewed] = useState<AdjustmentDetail[]>([]);
   const [selected, setSelected] = useState<AdjustmentDetail | null>(null);
   const [reviewNote, setReviewNote] = useState('');
   const [loading, setLoading] = useState(true);
@@ -21,8 +24,8 @@ export default function ReviewPage() {
   async function refresh() {
     setLoading(true);
     try {
-      const rows = await getPendingAdjustments();
-      setPending(rows);
+      const [pendingRows, reviewedRows] = await Promise.all([getPendingAdjustments(), getReviewedAdjustments()]);
+      setPending(pendingRows); setReviewed(reviewedRows);
       if (selected) setSelected(await getAdjustmentDetail(selected.id));
       setError('');
     } catch (failure) {
@@ -35,7 +38,10 @@ export default function ReviewPage() {
   async function choose(id: number) {
     if (busy || loading) return;
     setLoading(true); setError(''); setSuccess(''); setReviewNote('');
-    try { setSelected(await getAdjustmentDetail(id)); }
+    try {
+      setSelected(await getAdjustmentDetail(id));
+      requestAnimationFrame(() => document.getElementById('review-detail-title')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
     catch (failure) { setError(failure instanceof ApiError ? failure.message : '無法讀取申請詳情。'); }
     finally { setLoading(false); }
   }
@@ -51,9 +57,11 @@ export default function ReviewPage() {
         : `申請 #${result.request_id} 已駁回，餘量仍為 ${result.new_qty} ${selected.unit}。`);
       setReviewNote('');
       try {
-        const [detail, rows] = await Promise.all([getAdjustmentDetail(selected.id), getPendingAdjustments()]);
-        setSelected(detail); setPending(rows);
-      } catch { setError('審核已完成，但清單更新失敗；請按「更新待審與詳情」再查詢。'); }
+        const [detail, pendingRows, reviewedRows] = await Promise.all([
+          getAdjustmentDetail(selected.id), getPendingAdjustments(), getReviewedAdjustments(),
+        ]);
+        setSelected(detail); setPending(pendingRows); setReviewed(reviewedRows);
+      } catch { setError('審核已完成，但清單更新失敗；請按「更新申請與詳情」再查詢。'); }
     } catch (failure) {
       if (failure instanceof ApiError && [401, 403, 404, 409, 422].includes(failure.status)) {
         setError(failure.message);
@@ -66,14 +74,15 @@ export default function ReviewPage() {
 
   return <main className="app-shell review-page">
     <p className="eyebrow">管理者審核</p><h1>盤點與損耗審核</h1>
+    <QuickJump items={[{ id: 'review-pending', label: '待審申請' }, { id: 'review-reviewed', label: '已審核紀錄' }]} />
     <p className="hint">核對申請原數、現場實數或報廢量，以及送件原因後再決定。核准才會更新餘量。</p>
     {error && <p role="alert" className="error">{error}</p>}
     {success && <p role="status" className="notice">{success}</p>}
     {loading && <p role="status">正在讀取申請…</p>}
-    <button className="secondary" type="button" disabled={busy || loading} onClick={() => void refresh()}>更新待審與詳情</button>
+    <button className="secondary" type="button" disabled={busy || loading} onClick={() => void refresh()}>更新申請與詳情</button>
     {uncertain && <div className="card"><p role="alert">上次審核結果未確認。請核對此筆狀態、異動紀錄和庫存餘量；查詢暫時沒有結果也不能代表操作失敗。</p>
       <button type="button" disabled={busy || loading || !selected} onClick={() => { setUncertain(false); setError(''); }}>我已核對結果，開始新的審核</button></div>}
-    <section className="card" aria-labelledby="pending-title">
+    <section id="review-pending" className="card jump-target" aria-labelledby="pending-title">
       <h2 id="pending-title">待審申請</h2>
       {!loading && pending.length === 0 && <p>目前沒有待審申請。</p>}
       <div className="review-list">{pending.map((record) => <article key={record.id}>
@@ -104,5 +113,18 @@ export default function ReviewPage() {
         </div>
       </div>}
     </section>}
+    <section id="review-reviewed" className="card jump-target" aria-labelledby="reviewed-title">
+      <h2 id="reviewed-title">最近已審核申請（最多 100 筆）</h2>
+      {!loading && reviewed.length === 0 && <p>目前沒有已審核申請。</p>}
+      <div className="review-list">{reviewed.map((record) => <article key={record.id}>
+        <strong>#{record.id} {record.kind === 'COUNT' ? '盤點' : '報廢'}／{record.status === 'APPROVED' ? '已核准' : '已駁回'}：{record.product_name}</strong>
+        <span>{record.lot_code}／{record.location_code}；送件人 {record.requester_name}</span>
+        <span>原數 {record.original_qty} {record.unit}；{record.kind === 'COUNT' ? `實數 ${record.observed_qty}` : `報廢 ${record.damaged_qty}`} {record.unit}</span>
+        {record.reviewed_at && <span>審核人 {record.reviewer_name}／{timeText(record.reviewed_at)}（臺灣時間）</span>}
+        {record.review_note && <span>{record.status === 'REJECTED' ? '駁回原因' : '審核備註'}：{record.review_note}</span>}
+        <button type="button" className="secondary" disabled={busy || loading} onClick={() => void choose(record.id)}>查看詳情</button>
+      </article>)}</div>
+    </section>
+    <BackToTop />
   </main>;
 }

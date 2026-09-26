@@ -24,6 +24,9 @@ export interface AdjustmentRecord {
   reason: string;
   status: 'PENDING' | 'APPROVED' | 'REJECTED';
   created_at: string;
+  reviewer_name: string | null;
+  review_note: string | null;
+  reviewed_at: string | null;
 }
 
 export interface AdjustmentDetail extends AdjustmentRecord {
@@ -32,9 +35,6 @@ export interface AdjustmentDetail extends AdjustmentRecord {
   current_qty: number;
   difference: number;
   reviewed_by: number | null;
-  reviewer_name: string | null;
-  review_note: string | null;
-  reviewed_at: string | null;
   movement_id: number | null;
 }
 
@@ -62,6 +62,10 @@ export function getMyAdjustments(): Promise<AdjustmentRecord[]> {
 
 export function getPendingAdjustments(): Promise<AdjustmentDetail[]> {
   return apiRequest('/api/adjustments/pending', { signal: AbortSignal.timeout(10000) });
+}
+
+export function getReviewedAdjustments(): Promise<AdjustmentDetail[]> {
+  return apiRequest('/api/adjustments/reviewed', { signal: AbortSignal.timeout(10000) });
 }
 
 export function getAdjustmentDetail(id: number): Promise<AdjustmentDetail> {

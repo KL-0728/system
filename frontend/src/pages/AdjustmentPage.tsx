@@ -58,7 +58,8 @@ export default function AdjustmentPage({ refreshKey = 0, onRequestCreated }: {
         reason: reason.trim(),
       });
       setSuccess(`申請 #${record.id} 已送出，狀態為待審；帳面仍為 ${record.original_qty} ${record.unit}。`);
-      setAmount(''); setReason('');
+      setSelectedKey(''); setAmount(''); setReason('');
+      if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
       onRequestCreated?.();
       await refresh();
     } catch (failure) {
@@ -81,8 +82,8 @@ export default function AdjustmentPage({ refreshKey = 0, onRequestCreated }: {
       <fieldset disabled={busy || loading || !ready || uncertain}>
         <label>批次與儲位<select required value={selectedKey} onChange={(event) => { setSelectedKey(event.target.value); setAmount(''); setError(''); setSuccess(''); }}>
           <option value="">請選擇批次與儲位</option>
-          {balances.map((row) => <option key={keyOf(row)} value={keyOf(row)}>
-            {row.product_name}／{row.lot_code}／{row.location_code}：{row.qty} {row.unit}{row.has_pending ? '（待審凍結）' : ''}
+          {balances.map((row) => <option key={keyOf(row)} value={keyOf(row)} disabled={row.has_pending}>
+            {row.product_name}／{row.lot_code}／{row.location_code}：{row.qty} {row.unit}{row.has_pending ? '（待審，暫不可選）' : ''}
           </option>)}
         </select></label>
         {ready && balances.length === 0 && <p>目前沒有可申請的批次與儲位庫存。</p>}
@@ -112,6 +113,8 @@ export default function AdjustmentPage({ refreshKey = 0, onRequestCreated }: {
       <span>原數 {record.original_qty} {record.unit}；{record.kind === 'COUNT' ? `實數 ${record.observed_qty}` : `報廢 ${record.damaged_qty}`} {record.unit}</span>
       <span>原因：{record.reason}</span>
       <span>{new Date(record.created_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false })}（臺灣時間）</span>
+      {record.reviewed_at && <span>審核人：{record.reviewer_name}／{new Date(record.reviewed_at).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false })}（臺灣時間）</span>}
+      {record.review_note && <span>{record.status === 'REJECTED' ? '駁回原因' : '審核備註'}：{record.review_note}</span>}
     </article>)}</div>
   </section>;
 }

@@ -44,6 +44,9 @@ class AdjustmentRecord(BaseModel):
     reason: str
     status: Literal["PENDING", "APPROVED", "REJECTED"]
     created_at: str
+    reviewer_name: str | None
+    review_note: str | None
+    reviewed_at: str | None
 
 
 class AdjustmentDetail(AdjustmentRecord):
@@ -52,9 +55,6 @@ class AdjustmentDetail(AdjustmentRecord):
     current_qty: int
     difference: int
     reviewed_by: int | None
-    reviewer_name: str | None
-    review_note: str | None
-    reviewed_at: str | None
     movement_id: int | None
 
 
