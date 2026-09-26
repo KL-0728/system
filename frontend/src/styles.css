@@ -76,3 +76,8 @@ article span { color: #526b65; font-size: .92rem; }
 .review-actions { display: grid; gap: 16px; margin-top: 20px; }
 .review-actions .button-row { flex-wrap: wrap; }
 @media (max-width: 450px) { .review-list button, .review-actions button { width: 100%; } .review-actions .button-row { display: grid; } }
+.reports-page { min-width: 0; overflow-wrap: anywhere; }
+.report-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.report-summary article strong { font-size: 1.8rem; line-height: 1.2; }
+.report-list { display: grid; gap: 12px; }
+.report-list article { min-width: 0; }
