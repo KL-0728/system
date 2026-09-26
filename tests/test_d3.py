@@ -72,6 +72,7 @@ def test_admin_only_seed_and_active_products_without_lots_are_zero(client: TestC
     assert report["summary"] == {
         "active_product_count": 4, "in_stock_product_count": 2,
         "low_stock_product_count": 1, "pending_adjustment_count": 0,
+        "shortage_demand_count": 0,
     }
     empty = by_name(report, "空箱品項")
     assert (empty["current_qty"], empty["is_low"], empty["replenishment_gap"], empty["unit"]) == (0, True, 5, "箱")

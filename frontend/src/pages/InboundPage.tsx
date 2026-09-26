@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { releaseFormFocus } from '../utils/formFocus';
 import { ApiError } from '../api/client';
 import { getInboundRecords, submitInbound, type InboundRecord } from '../api/inventory';
 import { getProducts } from '../api/masterData';
@@ -45,6 +46,7 @@ export default function InboundPage({ onStockChanged }: { onStockChanged?: () =>
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    releaseFormFocus(event);
     if (inFlight.current || loading || !ready || uncertain) return;
     setError(''); setSuccess('');
     const amount = Number(qty);

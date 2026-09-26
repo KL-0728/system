@@ -31,6 +31,7 @@ def search_inventory(
             )
             SELECT lots.id AS lot_id, lots.lot_code, products.id AS product_id,
                    products.name AS product_name, products.unit, lots.received_date,
+                   lots.expires_on,
                    receiver.display_name AS received_by,
                    locations.id AS location_id, locations.code AS location_code,
                    warehouses.code AS warehouse_code, warehouses.name AS warehouse_name,
@@ -48,12 +49,18 @@ def search_inventory(
             parameters,
         ).fetchall()
     today = taiwan_today()
-    return [
-        InventoryBalance(
-            **dict(row), age_days=max((today - date.fromisoformat(row["received_date"])).days, 0)
+    result: list[InventoryBalance] = []
+    for row in rows:
+        expires_on = row["expires_on"]
+        days_to_expiry = (date.fromisoformat(expires_on) - today).days if expires_on else None
+        status = "未提供" if days_to_expiry is None else (
+            "已到期" if days_to_expiry < 0 else "即將到期" if days_to_expiry <= 7 else "未到期"
         )
-        for row in rows
-    ]
+        result.append(InventoryBalance(
+            **dict(row), expiry_status=status,
+            age_days=max((today - date.fromisoformat(row["received_date"])).days, 0),
+        ))
+    return result
 
 
 def lot_movements(lot_id: int) -> list[InventoryMovement]:

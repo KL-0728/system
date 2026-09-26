@@ -1,10 +1,10 @@
 # 竹南冷凍倉儲庫存管理系統 — spec.md
 
-版本：4.1（2026-09-24 一致性校訂；固定 SQLite 資料庫與四人協作流程）
+版本：4.2（2026-09-26 加做四項；保留既有 SQLite 資料）
 依據：老師提供的《竹南-新版.pdf》個案，以及課堂使用手機、電腦現場操作並展示結果的要求。  
 定位：做出能完整操作、資料真實保存的小型系統；介面與展示資料使用繁體中文。
 
-文件分工：本檔定義功能、資料與驗收；`AGENTS.md` 定義片段與 Codex 工作方式；`README.md` 記錄實際安裝、啟動與已完成狀態。以 GitHub `KL-0728/system` 中合併到 `main` 的三份文件為共同依據。依目前回報僅基礎骨架已完成，不把以下需求視為已實作；依 2026-09-24 討論，交件日為下週五（2026-10-02），優先完成全部必做並保留最後兩天整合和彩排。
+文件分工：本檔定義功能、資料與驗收；`AGENTS.md` 定義片段與 Codex 工作方式；`README.md` 記錄實際安裝、啟動與已完成狀態。以 GitHub `KL-0728/system` 中合併到 `main` 的三份文件為共同依據。必做主線已整合，A 於 2026-09-26 決定實作第 2.2 節四項加做；實體手機與課堂設備仍須依 README 彩排，不能把自動測試當作現場驗收。
 
 ## 1. 題目、目標與設計邊界
 
@@ -44,16 +44,16 @@
 
 ### 2.2 加做：必做主線完成後，挑選能現場演示的功能
 
-本次交件暫不排入加做。以下保留為後續選項；只有第 5 節必做全部通過、完成彩排且 A 明確決定有餘力時才啟動，Codex 不自行加做。**下面各項互不依賴，沒有任何一項是必做**，不增加專用硬體或外部服務。
+必做主線完成後，A 已明確決定實作下列四項加做。這些功能不改變第 5 節的必做流程，不增加專用硬體或外部服務；每項須另行驗收，不可只展示假資料。
 
 | 加做功能 | 何時值得做 | 課堂上如何證明真的完成 |
 | --- | --- | --- |
 | 缺貨需求紀錄 | 想讓李太太知道「客人想買但沒賣到」的需求 | 輸入品項與詢問數量（即使現有庫存為零）；報表立即增加一筆缺貨需求，與已出庫量分開顯示 |
-| 批次效期提醒 | 有可信的人工輸入效期，想提醒優先檢查 | 在示範批次填入到期日，查詢頁按日期標示「即將到期」；未填效期的批次顯示「未提供」，不猜測品質 |
+| 批次效期提醒 | 有可信的人工輸入效期，想提醒優先檢查 | 管理者在示範批次填入到期日，查詢頁對到期前 7 天內標示「即將到期」、已過日期標示「已到期」；未填效期顯示「未提供」，不猜測品質 |
 | 儲位簡圖 | 核心查詢完成後，想讓老師更直觀看到位置 | 用 A、B 兩庫的方格清單標示儲位；點 A-01 顯示批次與數量，移位後刷新圖立即更新；不聲稱是實際建築平面圖 |
 | 庫存 CSV 匯出 | 老師希望帶走或比較報表 | 點「匯出庫存」下載純文字 CSV，開啟後能核對品項、批次、儲位與數量；無須 Excel 串接 |
 
-若某項無法用展示當天的設備、網址與示範資料**實際操作出結果**，就留在構想中，不列為已完成功能。加做功能需先完成自己的簡短驗收，再納入展示。
+若某項無法用展示當天的設備、網址與示範資料**實際操作出結果**，就留在構想中，不列為已完成功能。加做功能需先完成自己的簡短驗收，再納入展示。缺貨詢問量不得混入出庫量或扣減庫存；簡圖只是代碼方格，並非真實建築平面圖；CSV 要能以目前庫存篩選條件下載。
 
 ### 2.3 移除原規格中的高成本功能
 
@@ -86,7 +86,7 @@
 
 ## 4. 固定資料庫設計（四個模組共用）
 
-本次作業統一使用 **SQLite**。以下 SQL 是必做版唯一的建表定義；A 在開發時將同樣的 SQL 放入 `backend/schema.sql`，其他組員使用既有資料表，不各自發明名稱。若必須變更欄位，先由 A 與受影響組員確認並更新本節，再安排備份、遷移及驗證；修改建表 SQL 不會自動更新既有資料庫，不得直接刪庫套用新結構。加做功能的欄位或表等決定加做時再增補。
+本次作業統一使用 **SQLite**。以下 SQL 對應 `backend/schema.sql`，由 A 維護。4.2 版為加做增補 `lots.expires_on` 與 `shortage_demands`；既有資料庫需先備份再執行可重跑的 `python -m backend.migrate_extras`，修改建表 SQL 不會自動更新既有資料庫，且不得直接刪庫套用新結構。
 
 ### 4.1 統一約定
 
@@ -139,8 +139,18 @@ CREATE TABLE lots (
   lot_code TEXT NOT NULL UNIQUE,
   product_id INTEGER NOT NULL REFERENCES products(id),
   received_date TEXT NOT NULL,
+  expires_on TEXT,
   note TEXT NOT NULL DEFAULT '',
   created_by INTEGER NOT NULL REFERENCES users(id)
+);
+
+CREATE TABLE shortage_demands (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  qty INTEGER NOT NULL CHECK (typeof(qty) = 'integer' AND qty > 0),
+  note TEXT NOT NULL DEFAULT '',
+  actor_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE stock_balances (
@@ -212,6 +222,7 @@ CREATE INDEX idx_balances_location ON stock_balances(location_id);
 CREATE INDEX idx_movements_lot_time ON stock_movements(lot_id, created_at);
 CREATE INDEX idx_movements_kind_time ON stock_movements(kind, created_at);
 CREATE INDEX idx_requests_status ON adjustment_requests(status);
+CREATE INDEX idx_shortage_demands_product_time ON shortage_demands(product_id, created_at);
 ```
 
 ### 4.3 資料關係、流程和計算
@@ -234,6 +245,8 @@ CREATE INDEX idx_requests_status ON adjustment_requests(status);
 
 **報表**：品項總量為該品項所有批次、儲位 `qty` 之和，沒有批次的啟用品項也要以 0 納入；不同品項的籠、箱等數量不能直接合計。低庫存條件為 `總量 < min_qty`；參考補貨缺口為 `max(target_qty − 總量, 0)`；近 30 日出庫量僅按品項／單位加總 `OUTBOUND`；庫齡依批次入庫日；`SCRAP` 與 `COUNT_LOSS` 分開統計。`created_at` 為 UTC，報表計算近 30 日時以同一時間基準查詢，避免跨裝置日期不同。
 
+**加做資料**：`shortage_demands` 每筆保存品項、正整數詢問量、備註、登入操作者與 UTC 建立時間，不連結 `stock_balances`，也不寫入 `stock_movements`。報表的累計缺貨詢問量與近 30 日已出庫量分列。`lots.expires_on` 是可空的人工到期日；管理者可填寫、改寫或清除，查詢頁按臺灣當日判定到期前 7 天內「即將到期」、已過日期「已到期」，未填顯示「未提供」。這些狀態只是提醒，不自動判定品質或阻止出庫。
+
 ### 4.4 固定 API 欄位（四人共用）
 
 所有 ID 使用資料庫整數 ID；畫面顯示文字碼。API 傳數量一律用 `qty`（整數），日期用 `YYYY-MM-DD`，角色用 `ADMIN`／`WORKER`。前端不得把中文單位文字傳給後端當成數量。至少固定以下輸入與結果；實際路徑可按 `routes/` 分檔，但合併前四人須維持同一份契約。
@@ -247,6 +260,9 @@ CREATE INDEX idx_requests_status ON adjustment_requests(status);
 | 移位 | `lot_id, from_location_id, to_location_id, qty` | 兩處新餘量及異動 ID |
 | 盤點／報廢申請 | `lot_id, location_id, kind, observed_qty` 或 `damaged_qty`，以及 `reason` | 申請 ID、原數、`PENDING` 狀態 |
 | 核准／駁回 | 申請 ID、動作、`review_note`（駁回必填，核准可選） | 更新後狀態、調整量與新餘量 |
+| 缺貨需求 | `product_id, qty, note`；倉管登入 | 需求 ID、品項、單位、詢問量、操作者與時間；不改庫存 |
+| 批次效期 | `lot_id, expires_on`（可空）；管理者登入 | 批次 ID、代碼、人工到期日；庫存查詢附效期狀態 |
+| 庫存 CSV | 同庫存查詢的可選篩選條件 | UTF-8 CSV 下載，包含各處餘量與全批合計 |
 
 所有寫入由伺服器從登入狀態取得 `actor_id`／`requested_by`／`reviewed_by`，不能信任前端自行提交的操作者 ID。無權限、超量、停用儲位、待審凍結及欄位錯誤要回明確訊息，不更新資料。
 
@@ -344,7 +360,7 @@ AI 可以產生大量程式碼，因此貢獻不能用「打了幾行」衡量�
 5. **禁止看不懂就合併**：模組負責人必須能說明主要檔案、資料流、驗證規則和錯誤處理；無法說明的 AI 程式碼視為未完成。
 6. **每人準備測試證據**：每人至少負責兩個測試案例，其中一個正常流程、一個錯誤流程，並保留測試結果或操作截圖。
 7. **每人上台操作**：四人分別展示自己負責的模組；任一人都要知道完整主線，但不要求每人背誦所有程式碼。
-8. **本次先交必做**：第 2.2 節保留為未來選項；A 未明確安排前不做。每個片段都包含自己需要的畫面、API、資料庫規則及驗證；切片不是只交假畫面或只交 API。
+8. **先驗收必做再納入加做**：A 已決定第 2.2 節四項均加做；各項仍要有自己的畫面、API、資料規則和實機驗收，不能只交假畫面或只交 API。
 
 建議每個合併請求使用同一份完成檢查：畫面可操作、後端有驗證、資料重新整理後仍存在、正常與錯誤案例通過、負責人能說明。這些條件比程式碼行數更能證明每位組員的實際貢獻。
 

@@ -5,6 +5,7 @@ export interface ReportSummary {
   in_stock_product_count: number;
   low_stock_product_count: number;
   pending_adjustment_count: number;
+  shortage_demand_count: number;
 }
 
 export interface ProductReport {
@@ -17,6 +18,7 @@ export interface ProductReport {
   is_low: boolean;
   replenishment_gap: number;
   outbound_30d: number;
+  shortage_demand_qty: number;
   count_gain_qty: number;
   count_loss_qty: number;
   scrap_qty: number;
@@ -52,6 +54,10 @@ export interface DecisionReport {
   products: ProductReport[];
   aged_lots: AgedLotReport[];
   adjustments: AdjustmentEventReport[];
+  shortage_demands: Array<{
+    id: number; product_id: number; product_name: string; unit: string;
+    qty: number; note: string; actor_name: string; created_at: string;
+  }>;
 }
 
 export function getDecisionReport(): Promise<DecisionReport> {

@@ -3,6 +3,7 @@ import { ApiError } from '../api/client';
 import { getBalanceOptions, getStockLocationOptions } from '../api/stockOptions';
 import { getTransferRecords, submitTransfer, type TransferRecord } from '../api/transfer';
 import type { BalanceOption, StockLocationOption } from '../types/stock';
+import { releaseFormFocus } from '../utils/formFocus';
 
 const keyOf = (row: BalanceOption) => `${row.lot_id}:${row.location_id}`;
 
@@ -44,6 +45,7 @@ export default function TransferPage({ refreshKey = 0, onStockChanged }: {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    releaseFormFocus(event);
     if (inFlight.current || loading || !ready || uncertain) return;
     setError(''); setSuccess('');
     const amount = Number(qty);

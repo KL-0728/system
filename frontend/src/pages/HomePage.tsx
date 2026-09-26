@@ -27,7 +27,7 @@ export default function HomePage({ user }: { user: CurrentUser }) {
   useEffect(() => { if (user.role === 'ADMIN') void refreshReport(); }, [user.role]);
   return <main className="app-shell">
     <p className="eyebrow">首頁</p><h1>你好，{user.display_name}</h1><p>{user.role === 'ADMIN' ? '管理者' : '倉管人員'}工作區</p>
-    {user.role === 'ADMIN' && <section className="card" aria-label="管理統計"><h2>管理統計</h2>
+    {user.role === 'ADMIN' && <section className="card home-stats" aria-label="管理統計"><h2>管理統計</h2>
       <p className="hint">數字來自目前資料庫；各品項數量不跨單位相加。</p>
       <button type="button" className="secondary" disabled={reportLoading} onClick={() => void refreshReport()}>更新統計</button>
       {reportLoading && <p role="status">正在更新管理統計…</p>}

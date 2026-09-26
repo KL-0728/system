@@ -51,7 +51,7 @@ h2 { margin-top: 0; }
 .eyebrow { margin-bottom: 4px; color: var(--accent); font-weight: 800; letter-spacing: .08em; }
 .card { margin: 22px 0; padding: clamp(20px, 5vw, 30px); border: 1px solid var(--border); border-radius: 16px; background: var(--surface); box-shadow: 0 8px 30px var(--shadow); }
 form { display: grid; gap: 16px; }
-label { display: grid; gap: 6px; font-weight: 700; }
+label { display: grid; min-width: 0; gap: 6px; font-weight: 700; }
 input, select, textarea { width: 100%; min-width: 0; max-width: 100%; min-height: 46px; padding: 9px 12px; border: 1px solid var(--field-border); border-radius: 9px; color: var(--text); background: var(--surface); }
 input::placeholder, textarea::placeholder { color: var(--muted); }
 fieldset:disabled { opacity: .75; }
@@ -67,8 +67,8 @@ fieldset:disabled { opacity: .75; }
 .form-row > label { min-width: 0; }
 .date-input-frame { display: flex; align-items: center; width: 100%; min-width: 0; min-height: 46px; padding: 0 12px; overflow: hidden; border: 1px solid var(--field-border); border-radius: 9px; background: var(--surface); }
 .date-input-frame:focus-within { outline: 3px solid var(--accent); outline-offset: 3px; }
-.inbound-panel .date-input-frame input[type='date'] { flex: 1; width: 100%; min-width: 0; max-width: 100%; min-inline-size: 0; min-height: 44px; padding: 0; border: 0; border-radius: 0; background: transparent; }
-.inbound-panel .date-input-frame input[type='date']:focus-visible { outline: none; }
+.date-input-frame input[type='date'] { flex: 1; width: 100%; min-width: 0; max-width: 100%; min-inline-size: 0; min-height: 44px; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.date-input-frame input[type='date']:focus-visible { outline: none; }
 .manage-list { display: grid; gap: 8px; margin-top: 24px; }
 .manage-list article { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .manage-list article div { display: grid; min-width: 0; overflow-wrap: anywhere; }
@@ -85,17 +85,17 @@ fieldset:disabled { opacity: .75; }
 article { display: grid; gap: 3px; min-width: 0; padding: 14px; border-radius: 10px; background: var(--soft); overflow-wrap: anywhere; }
 article span { color: var(--muted); font-size: .92rem; }
 .outbound-panel { min-width: 0; overflow-wrap: anywhere; }
-.outbound-panel fieldset { display: grid; gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.outbound-panel fieldset { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
 .outbound-panel select { min-width: 0; max-width: 100%; }
 .outbound-controls { display: grid; gap: 12px; margin-top: 20px; }
 .outbound-records { display: grid; gap: 12px; }
 .transfer-panel { min-width: 0; overflow-wrap: anywhere; }
-.transfer-panel fieldset { display: grid; gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.transfer-panel fieldset { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
 .transfer-panel select { min-width: 0; max-width: 100%; }
 .transfer-controls { display: grid; gap: 12px; margin-top: 20px; }
 .transfer-records, .transfer-balances { display: grid; gap: 12px; }
 .inbound-panel { min-width: 0; overflow-wrap: anywhere; }
-.inbound-panel fieldset { display: grid; gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.inbound-panel fieldset { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
 .inbound-panel select { min-width: 0; max-width: 100%; }
 .inbound-controls { display: grid; gap: 12px; margin-top: 20px; }
 .inbound-records { display: grid; gap: 12px; }
@@ -118,7 +118,8 @@ article span { color: var(--muted); font-size: .92rem; }
 .adjustment-records { grid-template-columns: minmax(0, 1fr); }
 .adjustment-records article { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
 .review-page { min-width: 0; overflow-wrap: anywhere; }
-.review-page #review-detail-title { scroll-margin-top: 90px; }
+.review-inline-detail { min-width: 0; margin-top: 8px; padding: 16px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+.review-inline-detail h3 { margin: 0 0 12px; }
 .review-list { display: grid; gap: 12px; }
 .review-list article { min-width: 0; }
 .review-list button { justify-self: start; }
@@ -127,9 +128,24 @@ article span { color: var(--muted); font-size: .92rem; }
 .review-actions .button-row { flex-wrap: wrap; }
 .reports-page { min-width: 0; overflow-wrap: anywhere; }
 .report-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.home-stats .report-summary { margin-top: 16px; }
 .report-summary article strong { font-size: 1.8rem; line-height: 1.2; }
 .report-list { display: grid; gap: 12px; }
 .report-list article { min-width: 0; }
+.shortage-panel, .location-map-panel { min-width: 0; overflow-wrap: anywhere; }
+.shortage-panel fieldset { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.shortage-controls, .shortage-records { display: grid; gap: 12px; margin-top: 16px; }
+.warehouse-map-list { display: grid; gap: 16px; margin-top: 18px; }
+.warehouse-map-list h3 { margin-bottom: 8px; }
+.location-map-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; }
+.location-tile { display: grid; justify-items: start; align-content: center; gap: 2px; text-align: left; border: 2px solid transparent; }
+.location-tile span { font-size: .85rem; font-weight: 500; }
+.location-tile.selected { border-color: var(--accent); }
+.location-map-detail { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); scroll-margin-top: 90px; }
+.expiry-alert { color: var(--danger); font-weight: 700; }
+.expiry-editor { margin: 12px 0; }
+.expiry-editor summary { cursor: pointer; color: var(--secondary-text); font-weight: 700; }
+.expiry-editor form { margin-top: 12px; }
 
 @media (max-width: 850px) {
   .top-nav { position: static; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; }
@@ -138,7 +154,7 @@ article span { color: var(--muted); font-size: .92rem; }
   .account { grid-column: 2; grid-row: 1; }
   .nav-links button { min-width: 0; padding: 8px 5px; }
   .account > span { display: none; }
-  .operation-anchor, .jump-target, .review-page #review-detail-title { scroll-margin-top: 16px; }
+  .operation-anchor, .jump-target, .location-map-detail { scroll-margin-top: 16px; }
 }
 @media (max-width: 650px) {
   .app-shell { padding: 16px 16px 84px; }

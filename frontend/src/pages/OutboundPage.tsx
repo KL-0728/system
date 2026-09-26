@@ -3,6 +3,7 @@ import { ApiError } from '../api/client';
 import { getOutboundRecords, submitOutbound, type OutboundRecord } from '../api/outbound';
 import { getBalanceOptions } from '../api/stockOptions';
 import type { BalanceOption } from '../types/stock';
+import { releaseFormFocus } from '../utils/formFocus';
 
 const keyOf = (balance: BalanceOption) => `${balance.lot_id}:${balance.location_id}`;
 
@@ -43,6 +44,7 @@ export default function OutboundPage({ refreshKey = 0, onStockChanged }: {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    releaseFormFocus(event);
     if (inFlight.current || loading || uncertain) return;
     setError(''); setSuccess('');
     const amount = Number(qty);

@@ -38,8 +38,18 @@ CREATE TABLE lots (
   lot_code TEXT NOT NULL UNIQUE,
   product_id INTEGER NOT NULL REFERENCES products(id),
   received_date TEXT NOT NULL,
+  expires_on TEXT,
   note TEXT NOT NULL DEFAULT '',
   created_by INTEGER NOT NULL REFERENCES users(id)
+);
+
+CREATE TABLE shortage_demands (
+  id INTEGER PRIMARY KEY,
+  product_id INTEGER NOT NULL REFERENCES products(id),
+  qty INTEGER NOT NULL CHECK (typeof(qty) = 'integer' AND qty > 0),
+  note TEXT NOT NULL DEFAULT '',
+  actor_id INTEGER NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE TABLE stock_balances (
@@ -111,3 +121,4 @@ CREATE INDEX idx_balances_location ON stock_balances(location_id);
 CREATE INDEX idx_movements_lot_time ON stock_movements(lot_id, created_at);
 CREATE INDEX idx_movements_kind_time ON stock_movements(kind, created_at);
 CREATE INDEX idx_requests_status ON adjustment_requests(status);
+CREATE INDEX idx_shortage_demands_product_time ON shortage_demands(product_id, created_at);

@@ -30,12 +30,13 @@ export default function ReportsPage() {
     {error && <p role="alert" className="error">{error}</p>}
     {report && <>
       <p className="hint">資料時間：{timeText(report.as_of_utc)}（臺灣時間）；近 30 日依伺服器 UTC 時間計算。</p>
-      <QuickJump items={[{ id: 'report-summary', label: '統計' }, { id: 'report-low-stock', label: '低庫存' }, { id: 'report-products', label: '品項與出庫' }, { id: 'report-aged-lots', label: '庫齡' }, { id: 'report-adjustments', label: '盤差與報廢' }]} />
+      <QuickJump items={[{ id: 'report-summary', label: '統計' }, { id: 'report-low-stock', label: '低庫存' }, { id: 'report-products', label: '品項與出庫' }, { id: 'report-shortages', label: '缺貨需求' }, { id: 'report-aged-lots', label: '庫齡' }, { id: 'report-adjustments', label: '盤差與報廢' }]} />
       <section id="report-summary" className="card jump-target" aria-labelledby="report-summary-title"><h2 id="report-summary-title">首頁統計</h2>
         <div className="report-summary">
           <article><strong>{report.summary.in_stock_product_count}</strong><span>目前有庫存品項</span></article>
           <article><strong>{report.summary.low_stock_product_count}</strong><span>低於最低量品項</span></article>
           <article><strong>{report.summary.pending_adjustment_count}</strong><span>待審申請</span></article>
+          <article><strong>{report.summary.shortage_demand_count}</strong><span>缺貨詢問筆數</span></article>
           <article><strong>{report.summary.active_product_count}</strong><span>啟用品項</span></article>
         </div>
       </section>
@@ -51,8 +52,18 @@ export default function ReportsPage() {
         {report.products.length === 0 && <p>目前沒有啟用品項。</p>}
         <div className="report-list">{report.products.map((product) => <article key={product.product_id}>
           <strong>{product.product_name}{product.is_low ? '（低庫存）' : ''}</strong>
-          <span>目前 {product.current_qty} {product.unit}；近 30 日出庫 {product.outbound_30d} {product.unit}</span>
+          <span>目前 {product.current_qty} {product.unit}；近 30 日實際出庫 {product.outbound_30d} {product.unit}</span>
+          <span>累計缺貨詢問 {product.shortage_demand_qty} {product.unit}（未成交，不算出庫）</span>
           <span>最低 {product.min_qty} {product.unit}；目標 {product.target_qty} {product.unit}；距離目標還差 {product.replenishment_gap} {product.unit}</span>
+        </article>)}</div>
+      </section>
+      <section id="report-shortages" className="card jump-target" aria-labelledby="shortage-report-title"><h2 id="shortage-report-title">缺貨需求紀錄</h2>
+        <p className="hint">最近 100 筆詢問；只代表想買但未成交的需求，不扣庫存，也不計入實際出庫。</p>
+        {report.shortage_demands.length === 0 && <p>目前沒有缺貨需求紀錄。</p>}
+        <div className="report-list">{report.shortage_demands.map((item) => <article key={item.id}>
+          <strong>#{item.id} {item.product_name}：詢問 {item.qty} {item.unit}</strong>
+          <span>{timeText(item.created_at)}（臺灣時間）／{item.actor_name}</span>
+          {item.note && <span>備註：{item.note}</span>}
         </article>)}</div>
       </section>
       <section id="report-aged-lots" className="card jump-target" aria-labelledby="aged-lots-title"><h2 id="aged-lots-title">現有批次庫齡</h2>

@@ -1,6 +1,7 @@
 from datetime import date, datetime, timedelta, timezone
 
 from backend.database import connect_database
+from backend.schemas.extras import ShortageDemandRecord
 from backend.schemas.report import (
     AdjustmentEventReport, AgedLotReport, DecisionReport,
     ProductReport, ReportSummary,
@@ -32,6 +33,9 @@ def build_decision_report(as_of: datetime | None = None) -> DecisionReport:
                 WHERE movements.kind = 'OUTBOUND'
                   AND movements.created_at >= ? AND movements.created_at <= ?
                 GROUP BY lots.product_id
+            ), shortage_totals AS (
+                SELECT product_id, SUM(qty) AS qty
+                FROM shortage_demands GROUP BY product_id
             ), adjustment_totals AS (
                 SELECT lots.product_id,
                        SUM(CASE WHEN movements.kind = 'COUNT_GAIN' THEN movements.qty ELSE 0 END) AS count_gain_qty,
@@ -48,12 +52,14 @@ def build_decision_report(as_of: datetime | None = None) -> DecisionReport:
                    products.min_qty, products.target_qty,
                    COALESCE(stock_totals.qty, 0) AS current_qty,
                    COALESCE(outbound_totals.qty, 0) AS outbound_30d,
+                   COALESCE(shortage_totals.qty, 0) AS shortage_demand_qty,
                    COALESCE(adjustment_totals.count_gain_qty, 0) AS count_gain_qty,
                    COALESCE(adjustment_totals.count_loss_qty, 0) AS count_loss_qty,
                    COALESCE(adjustment_totals.scrap_qty, 0) AS scrap_qty
             FROM products
             LEFT JOIN stock_totals ON stock_totals.product_id = products.id
             LEFT JOIN outbound_totals ON outbound_totals.product_id = products.id
+            LEFT JOIN shortage_totals ON shortage_totals.product_id = products.id
             LEFT JOIN adjustment_totals ON adjustment_totals.product_id = products.id
             WHERE products.is_active = 1
             ORDER BY products.name, products.id
@@ -63,6 +69,17 @@ def build_decision_report(as_of: datetime | None = None) -> DecisionReport:
         pending_count = connection.execute(
             "SELECT COUNT(*) FROM adjustment_requests WHERE status = 'PENDING'"
         ).fetchone()[0]
+        shortage_count = connection.execute("SELECT COUNT(*) FROM shortage_demands").fetchone()[0]
+        shortage_rows = connection.execute("""
+            SELECT demands.id, demands.product_id, products.name AS product_name,
+                   products.unit, demands.qty, demands.note,
+                   users.display_name AS actor_name,
+                   strftime('%Y-%m-%dT%H:%M:%SZ', demands.created_at) AS created_at
+            FROM shortage_demands AS demands
+            JOIN products ON products.id = demands.product_id
+            JOIN users ON users.id = demands.actor_id
+            ORDER BY demands.id DESC LIMIT 100
+        """).fetchall()
         lot_rows = connection.execute(
             """
             SELECT lots.id AS lot_id, lots.lot_code, products.name AS product_name,
@@ -111,8 +128,10 @@ def build_decision_report(as_of: datetime | None = None) -> DecisionReport:
             in_stock_product_count=sum(product.current_qty > 0 for product in products),
             low_stock_product_count=sum(product.is_low for product in products),
             pending_adjustment_count=pending_count,
+            shortage_demand_count=shortage_count,
         ),
         products=products,
         aged_lots=aged_lots,
         adjustments=[AdjustmentEventReport(**dict(row)) for row in event_rows],
+        shortage_demands=[ShortageDemandRecord(**dict(row)) for row in shortage_rows],
     )

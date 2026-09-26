@@ -1,11 +1,14 @@
 from pydantic import BaseModel
 
+from backend.schemas.extras import ShortageDemandRecord
+
 
 class ReportSummary(BaseModel):
     active_product_count: int
     in_stock_product_count: int
     low_stock_product_count: int
     pending_adjustment_count: int
+    shortage_demand_count: int
 
 
 class ProductReport(BaseModel):
@@ -18,6 +21,7 @@ class ProductReport(BaseModel):
     is_low: bool
     replenishment_gap: int
     outbound_30d: int
+    shortage_demand_qty: int
     count_gain_qty: int
     count_loss_qty: int
     scrap_qty: int
@@ -53,3 +57,4 @@ class DecisionReport(BaseModel):
     products: list[ProductReport]
     aged_lots: list[AgedLotReport]
     adjustments: list[AdjustmentEventReport]
+    shortage_demands: list[ShortageDemandRecord]

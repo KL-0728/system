@@ -3,6 +3,7 @@ import { getMyAdjustments, submitAdjustment, type AdjustmentRecord } from '../ap
 import { ApiError } from '../api/client';
 import { getBalanceOptions } from '../api/stockOptions';
 import type { BalanceOption } from '../types/stock';
+import { releaseFormFocus } from '../utils/formFocus';
 
 const keyOf = (row: BalanceOption) => `${row.lot_id}:${row.location_id}`;
 const statusLabel = { PENDING: '待審', APPROVED: '已核准', REJECTED: '已駁回' };
@@ -40,6 +41,7 @@ export default function AdjustmentPage({ refreshKey = 0, onRequestCreated }: {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    releaseFormFocus(event);
     if (inFlight.current || loading || !ready || uncertain) return;
     setError(''); setSuccess('');
     const value = Number(amount);
