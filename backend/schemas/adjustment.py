@@ -44,3 +44,41 @@ class AdjustmentRecord(BaseModel):
     reason: str
     status: Literal["PENDING", "APPROVED", "REJECTED"]
     created_at: str
+
+
+class AdjustmentDetail(AdjustmentRecord):
+    requested_by: int
+    requester_name: str
+    current_qty: int
+    difference: int
+    reviewed_by: int | None
+    reviewer_name: str | None
+    review_note: str | None
+    reviewed_at: str | None
+    movement_id: int | None
+
+
+class AdjustmentReview(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["APPROVE", "REJECT"]
+    review_note: str = Field(default="", max_length=500)
+
+    @model_validator(mode="after")
+    def validate_review_note(self) -> "AdjustmentReview":
+        self.review_note = self.review_note.strip()
+        if self.action == "REJECT" and not self.review_note:
+            raise ValueError("駁回必須填寫原因")
+        return self
+
+
+class AdjustmentReviewResult(BaseModel):
+    request_id: int
+    status: Literal["APPROVED", "REJECTED"]
+    original_qty: int
+    new_qty: int
+    delta: int
+    movement_id: int | None
+    reviewed_by: int
+    review_note: str
+    reviewed_at: str

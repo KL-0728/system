@@ -17,6 +17,6 @@ export default function OperationsPage({ role }: { role: 'ADMIN' | 'WORKER' }) {
       <OutboundPage refreshKey={outboundRefresh} onStockChanged={() => { setTransferRefresh((value) => value + 1); setAdjustmentRefresh((value) => value + 1); }} />
       <TransferPage refreshKey={transferRefresh} onStockChanged={() => { setOutboundRefresh((value) => value + 1); setAdjustmentRefresh((value) => value + 1); }} />
       <AdjustmentPage refreshKey={adjustmentRefresh} onRequestCreated={() => { setOutboundRefresh((value) => value + 1); setTransferRefresh((value) => value + 1); }} />
-    </> : <p className="notice">入庫、出庫、移位與盤點申請請使用倉管帳號登入操作；審核功能待 D2 串接。</p>}
+    </> : <p className="notice">入庫、出庫、移位與盤點申請請使用倉管帳號登入操作；審核請點上方「審核申請」。</p>}
   </main>;
 }

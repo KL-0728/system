@@ -1,7 +1,7 @@
 :root { font-family: system-ui, "Microsoft JhengHei", sans-serif; color: #183c38; background: #eef4f1; line-height: 1.6; }
 * { box-sizing: border-box; }
 body { margin: 0; }
-button, input, select { font: inherit; }
+button, input, select, textarea { font: inherit; }
 button { min-height: 46px; padding: 10px 18px; border: 0; border-radius: 10px; color: white; background: #176b5b; font-weight: 700; cursor: pointer; }
 button:disabled { cursor: wait; opacity: .65; }
 button.secondary { color: #176b5b; background: #dcebe6; }
@@ -68,3 +68,11 @@ article span { color: #526b65; font-size: .92rem; }
 .adjustment-panel fieldset { display: grid; gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
 .adjustment-panel select, .adjustment-panel textarea { min-width: 0; max-width: 100%; }
 .adjustment-controls, .adjustment-records { display: grid; gap: 12px; margin-top: 16px; }
+.review-page { min-width: 0; overflow-wrap: anywhere; }
+.review-list { display: grid; gap: 12px; }
+.review-list article { min-width: 0; }
+.review-list button { justify-self: start; }
+.review-detail p { margin: 8px 0; }
+.review-actions { display: grid; gap: 16px; margin-top: 20px; }
+.review-actions .button-row { flex-wrap: wrap; }
+@media (max-width: 450px) { .review-list button, .review-actions button { width: 100%; } .review-actions .button-row { display: grid; } }
