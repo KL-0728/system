@@ -20,7 +20,7 @@ h2 { margin-top: 0; }
 .card { margin: 22px 0; padding: clamp(20px, 5vw, 30px); border: 1px solid #b8d0c9; border-radius: 16px; background: white; box-shadow: 0 8px 30px #163c3420; }
 form { display: grid; gap: 16px; }
 label { display: grid; gap: 6px; font-weight: 700; }
-input, select { width: 100%; min-height: 46px; padding: 9px 12px; border: 1px solid #8eaaa3; border-radius: 9px; background: white; }
+input, select, textarea { width: 100%; min-height: 46px; padding: 9px 12px; border: 1px solid #8eaaa3; border-radius: 9px; background: white; }
 .check { display: flex; grid-template-columns: none; align-items: center; gap: 10px; }
 .check input { width: 22px; min-height: 22px; }
 .hint { color: #58716b; font-size: .92rem; }
@@ -64,3 +64,7 @@ article span { color: #526b65; font-size: .92rem; }
 .inventory-movement { display: grid; gap: 3px; padding: 10px; border-left: 3px solid #176b5b; background: white; }
 .inventory-movement span { color: #526b65; }
 @media (max-width: 450px) { .inventory-actions button { width: 100%; } .inventory-position { display: grid; } }
+.adjustment-panel { min-width: 0; overflow-wrap: anywhere; }
+.adjustment-panel fieldset { display: grid; gap: 16px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.adjustment-panel select, .adjustment-panel textarea { min-width: 0; max-width: 100%; }
+.adjustment-controls, .adjustment-records { display: grid; gap: 12px; margin-top: 16px; }
