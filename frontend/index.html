@@ -4,6 +4,12 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>竹南冷凍倉儲庫存管理系統</title>
+  <script>
+    try {
+      const choice = localStorage.getItem('zhunan-theme');
+      document.documentElement.dataset.theme = choice === 'dark' || (choice !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches) ? 'dark' : 'light';
+    } catch { document.documentElement.dataset.theme = 'light'; }
+  </script>
 </head>
 <body>
   <div id="root"></div>

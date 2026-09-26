@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { getCurrentUser, logout } from './api/auth';
 import Navigation, { type PageName } from './components/Navigation';
+import type { EffectiveTheme, ThemePreference } from './components/ThemeToggle';
 import HomePage from './pages/HomePage';
 import LoginPage from './pages/LoginPage';
 import OperationsPage from './pages/OperationsPage';
@@ -9,11 +10,47 @@ import ReviewPage from './pages/ReviewPage';
 import ReportsPage from './pages/ReportsPage';
 import type { CurrentUser } from './types/auth';
 
+const themeStorageKey = 'zhunan-theme';
+
+function storedTheme(): ThemePreference {
+  try {
+    const value = window.localStorage.getItem(themeStorageKey);
+    return value === 'light' || value === 'dark' ? value : 'system';
+  } catch { return 'system'; }
+}
+
+function resolveTheme(preference: ThemePreference): EffectiveTheme {
+  return preference === 'system'
+    ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+    : preference;
+}
+
 export default function App() {
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<PageName>(() => window.location.hash === '#reviews' ? 'reviews' : window.location.hash === '#reports' ? 'reports' : 'home');
   const [loggingOut, setLoggingOut] = useState(false);
+  const [themePreference, setThemePreference] = useState<ThemePreference>(storedTheme);
+  const [effectiveTheme, setEffectiveTheme] = useState<EffectiveTheme>(() => resolveTheme(themePreference));
+  useEffect(() => {
+    const systemTheme = window.matchMedia('(prefers-color-scheme: dark)');
+    const applyTheme = () => {
+      const nextTheme = themePreference === 'system' ? (systemTheme.matches ? 'dark' : 'light') : themePreference;
+      document.documentElement.dataset.theme = nextTheme;
+      setEffectiveTheme(nextTheme);
+    };
+    applyTheme();
+    if (typeof systemTheme.addEventListener === 'function') {
+      systemTheme.addEventListener('change', applyTheme);
+      return () => systemTheme.removeEventListener('change', applyTheme);
+    }
+    systemTheme.addListener(applyTheme);
+    return () => systemTheme.removeListener(applyTheme);
+  }, [themePreference]);
+  function changeTheme(value: ThemePreference) {
+    setThemePreference(value);
+    try { window.localStorage.setItem(themeStorageKey, value); } catch { /* Private browsing can deny storage. */ }
+  }
   useEffect(() => { getCurrentUser().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false)); }, []);
   useEffect(() => {
     const onHashChange = () => {
@@ -31,8 +68,9 @@ export default function App() {
   }
   async function handleLogout() { setLoggingOut(true); try { await logout(); setUser(null); handleNavigate('home'); } finally { setLoggingOut(false); } }
   if (loading) return <main><p role="status">正在確認登入狀態…</p></main>;
-  if (!user) return <LoginPage onLogin={setUser} />;
-  return <><Navigation user={user} page={page} onNavigate={handleNavigate} onLogout={handleLogout} busy={loggingOut} />
+  if (!user) return <LoginPage onLogin={setUser} themePreference={themePreference} effectiveTheme={effectiveTheme} onThemeChange={changeTheme} />;
+  return <><Navigation user={user} page={page} onNavigate={handleNavigate} onLogout={handleLogout} busy={loggingOut}
+    themePreference={themePreference} effectiveTheme={effectiveTheme} onThemeChange={changeTheme} />
     {page === 'home' && <HomePage user={user} />}
     {page === 'operations' && <OperationsPage role={user.role} />}
     {page === 'settings' && user.role === 'ADMIN' && <SettingsPage />}

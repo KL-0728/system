@@ -92,7 +92,7 @@ export default function InboundPage({ onStockChanged }: { onStockChanged?: () =>
         {!loading && ready && (products.length === 0 || locations.length === 0) && <p>目前沒有可用的啟用品項或儲位，請管理者先到基本資料建立。</p>}
         <div className="form-row">
           <label>入庫數量{product ? `（${product.unit}）` : ''}<input type="number" inputMode="numeric" min="1" step="1" required value={qty} onChange={(event) => setQty(event.target.value)} /></label>
-          <label>入庫日期<input type="date" required max={taiwanToday()} value={receivedDate} onChange={(event) => setReceivedDate(event.target.value)} /></label>
+          <label>入庫日期<span className="date-input-frame"><input type="date" required max={taiwanToday()} value={receivedDate} onChange={(event) => setReceivedDate(event.target.value)} /></span></label>
         </div>
         <label>備註（選填，最多 500 字，例如供應商）<input maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} /></label>
         <button type="submit" disabled={!product || !location}>{busy ? '入庫處理中…' : '確認入庫'}</button>

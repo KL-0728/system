@@ -1,8 +1,14 @@
 import { FormEvent, useState } from 'react';
 import { login } from '../api/auth';
+import ThemeToggle, { type EffectiveTheme, type ThemePreference } from '../components/ThemeToggle';
 import type { CurrentUser } from '../types/auth';
 
-export default function LoginPage({ onLogin }: { onLogin: (user: CurrentUser) => void }) {
+export default function LoginPage({ onLogin, themePreference, effectiveTheme, onThemeChange }: {
+  onLogin: (user: CurrentUser) => void;
+  themePreference: ThemePreference;
+  effectiveTheme: EffectiveTheme;
+  onThemeChange: (value: ThemePreference) => void;
+}) {
   const [username, setUsername] = useState('worker');
   const [password, setPassword] = useState('worker1234');
   const [message, setMessage] = useState('');
@@ -14,7 +20,8 @@ export default function LoginPage({ onLogin }: { onLogin: (user: CurrentUser) =>
     finally { setSubmitting(false); }
   }
   return <main className="login-shell"><section className="card login-card" aria-labelledby="login-title">
-    <p className="eyebrow">竹南冷凍倉儲</p><h1 id="login-title">登入庫存系統</h1>
+    <div className="login-head"><p className="eyebrow">竹南冷凍倉儲</p><ThemeToggle value={themePreference} effectiveTheme={effectiveTheme} onChange={onThemeChange} /></div>
+    <h1 id="login-title">登入庫存系統</h1>
     <form onSubmit={handleSubmit}>
       <label>帳號<input value={username} onChange={(event) => setUsername(event.target.value)} autoComplete="username" required /></label>
       <label>密碼<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} autoComplete="current-password" required /></label>
