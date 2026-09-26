@@ -9,6 +9,7 @@ import SettingsPage from './pages/SettingsPage';
 import ReviewPage from './pages/ReviewPage';
 import ReportsPage from './pages/ReportsPage';
 import type { CurrentUser } from './types/auth';
+import { ApiError, UNAUTHORIZED_EVENT } from './api/client';
 
 const themeStorageKey = 'zhunan-theme';
 
@@ -30,6 +31,7 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState<PageName>(() => window.location.hash === '#reviews' ? 'reviews' : window.location.hash === '#reports' ? 'reports' : 'home');
   const [loggingOut, setLoggingOut] = useState(false);
+  const [logoutError, setLogoutError] = useState('');
   const [themePreference, setThemePreference] = useState<ThemePreference>(storedTheme);
   const [effectiveTheme, setEffectiveTheme] = useState<EffectiveTheme>(() => resolveTheme(themePreference));
   useEffect(() => {
@@ -53,6 +55,11 @@ export default function App() {
   }
   useEffect(() => { getCurrentUser().then(setUser).catch(() => setUser(null)).finally(() => setLoading(false)); }, []);
   useEffect(() => {
+    const onUnauthorized = () => { setUser(null); setPage('home'); setLogoutError(''); };
+    window.addEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+    return () => window.removeEventListener(UNAUTHORIZED_EVENT, onUnauthorized);
+  }, []);
+  useEffect(() => {
     const onHashChange = () => {
       if (window.location.hash === '#reviews') setPage('reviews');
       else if (window.location.hash === '#reports') setPage('reports');
@@ -66,11 +73,19 @@ export default function App() {
     else if (window.location.hash === '#reviews' || window.location.hash === '#reports') window.history.replaceState(null, '', window.location.pathname + window.location.search);
     setPage(next);
   }
-  async function handleLogout() { setLoggingOut(true); try { await logout(); setUser(null); handleNavigate('home'); } finally { setLoggingOut(false); } }
+  async function handleLogout() {
+    setLoggingOut(true); setLogoutError('');
+    try { await logout(); setUser(null); handleNavigate('home'); }
+    catch (error) {
+      if (error instanceof ApiError && error.status === 401) setUser(null);
+      else setLogoutError('登出未完成，請確認連線後再按一次登出。');
+    } finally { setLoggingOut(false); }
+  }
   if (loading) return <main><p role="status">正在確認登入狀態…</p></main>;
   if (!user) return <LoginPage onLogin={setUser} themePreference={themePreference} effectiveTheme={effectiveTheme} onThemeChange={changeTheme} />;
   return <><Navigation user={user} page={page} onNavigate={handleNavigate} onLogout={handleLogout} busy={loggingOut}
     themePreference={themePreference} effectiveTheme={effectiveTheme} onThemeChange={changeTheme} />
+    {logoutError && <p role="alert" className="app-shell error">{logoutError}</p>}
     {page === 'home' && <HomePage user={user} />}
     {page === 'operations' && <OperationsPage role={user.role} />}
     {page === 'settings' && user.role === 'ADMIN' && <SettingsPage />}

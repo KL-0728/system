@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiRequest, UNAUTHORIZED_EVENT, REQUEST_TIMEOUT_MS } from './client';
 import type { InventoryBalance, InventoryMovement } from '../types/inventory';
 
 export interface InventoryFilters {
@@ -21,7 +21,10 @@ export function searchInventory(filters: InventoryFilters): Promise<InventoryBal
 }
 
 export async function downloadInventoryCsv(filters: InventoryFilters): Promise<void> {
-  const response = await fetch('/api/inventory/stock.csv' + filterQuery(filters), { credentials: 'same-origin' });
+  const response = await fetch('/api/inventory/stock.csv' + filterQuery(filters), {
+    credentials: 'same-origin', signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+  });
+  if (response.status === 401) window.dispatchEvent(new Event(UNAUTHORIZED_EVENT));
   if (!response.ok) throw new Error('CSV 匯出失敗，請確認登入狀態與網路連線。');
   const url = URL.createObjectURL(await response.blob());
   const link = document.createElement('a');

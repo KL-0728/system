@@ -15,10 +15,10 @@ export default function OperationsPage({ role }: { role: 'ADMIN' | 'WORKER' }) {
   const [transferRefresh, setTransferRefresh] = useState(0);
   const [adjustmentRefresh, setAdjustmentRefresh] = useState(0);
   const [mapRefresh, setMapRefresh] = useState(0);
-  function refreshStock() {
+  function refreshStock(source: 'inbound' | 'outbound' | 'transfer') {
     setInventoryRefresh((value) => value + 1);
-    setOutboundRefresh((value) => value + 1);
-    setTransferRefresh((value) => value + 1);
+    if (source !== 'outbound') setOutboundRefresh((value) => value + 1);
+    if (source !== 'transfer') setTransferRefresh((value) => value + 1);
     setAdjustmentRefresh((value) => value + 1);
     setMapRefresh((value) => value + 1);
   }
@@ -39,9 +39,9 @@ export default function OperationsPage({ role }: { role: 'ADMIN' | 'WORKER' }) {
     <div id="operation-inventory" className="operation-anchor"><InventoryPage refreshKey={inventoryRefresh} role={role} /></div>
     <div id="operation-map" className="operation-anchor"><LocationMapPage refreshKey={mapRefresh} /></div>
     {role === 'WORKER' ? <>
-      <div id="operation-inbound" className="operation-anchor"><InboundPage onStockChanged={refreshStock} /></div>
-      <div id="operation-outbound" className="operation-anchor"><OutboundPage refreshKey={outboundRefresh} onStockChanged={refreshStock} /></div>
-      <div id="operation-transfer" className="operation-anchor"><TransferPage refreshKey={transferRefresh} onStockChanged={refreshStock} /></div>
+      <div id="operation-inbound" className="operation-anchor"><InboundPage onStockChanged={() => refreshStock('inbound')} /></div>
+      <div id="operation-outbound" className="operation-anchor"><OutboundPage refreshKey={outboundRefresh} onStockChanged={() => refreshStock('outbound')} /></div>
+      <div id="operation-transfer" className="operation-anchor"><TransferPage refreshKey={transferRefresh} onStockChanged={() => refreshStock('transfer')} /></div>
       <div id="operation-adjustment" className="operation-anchor"><AdjustmentPage refreshKey={adjustmentRefresh} onRequestCreated={() => { setOutboundRefresh((value) => value + 1); setTransferRefresh((value) => value + 1); }} /></div>
       <div id="operation-shortage" className="operation-anchor"><ShortagePage /></div>
     </> : <p className="notice">入庫、出庫、移位與盤點申請請使用倉管帳號登入操作；審核請點上方「審核申請」。</p>}

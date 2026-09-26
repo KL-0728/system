@@ -5,6 +5,7 @@ import { createShortageDemand, getShortageDemands, type ShortageDemand } from '.
 import type { Product } from '../types/masterData';
 import { smoothScrollTo } from '../utils/smoothScroll';
 import { releaseFormFocus } from '../utils/formFocus';
+import { productOptionLabel } from '../utils/productOptionLabel';
 
 export default function ShortagePage() {
   const [products, setProducts] = useState<Product[]>([]);
@@ -68,8 +69,9 @@ export default function ShortagePage() {
       <fieldset disabled={busy || loading || uncertain}>
         <label>品項<select required value={productId} onChange={(event) => setProductId(event.target.value)}>
           <option value="">請選擇品項</option>
-          {products.map((item) => <option value={item.id} key={item.id}>{item.name}（{item.unit}）</option>)}
+          {products.map((item) => <option value={item.id} key={item.id}>{productOptionLabel(item)}</option>)}
         </select></label>
+        {product && <p className="hint">已選品項：{product.name}（{product.unit}）</p>}
         <label>詢問數量{product ? `（${product.unit}）` : ''}<input type="number" inputMode="numeric" min="1" step="1" required value={qty} onChange={(event) => setQty(event.target.value)} /></label>
         <label>備註（選填，最多 500 字）<input maxLength={500} value={note} onChange={(event) => setNote(event.target.value)} /></label>
         <button type="submit" disabled={!product}>{busy ? '記錄中…' : '記錄缺貨需求'}</button>

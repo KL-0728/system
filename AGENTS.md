@@ -1,11 +1,11 @@
 # 竹南冷凍倉儲：Codex 任務片段表
 
-版本：2026-09-24 校訂。放在 `KL-0728/system` 根目錄，與 spec.md 4.1 搭配。
+版本：2026-09-27 校訂。放在 `KL-0728/system` 根目錄，與 spec.md 4.2 搭配。
 
 ## 執行方式
 
 使用者說「我是 B，現在做 B1」等指令時，讀本檔、最新 `spec.md`、`README.md` 和現有程式，實際完成指定片段的畫面／API／資料處理與必要測試；不只交計畫，也不自行做下一片。缺依賴要明說，不能用假成功、繞過登入或另一套共用服務代替。規格定義功能與資料，README 記錄實際啟動及介面；發現衝突先指出。
-- 一律沿用 React／TypeScript／Vite、FastAPI、SQLite 及現有骨架；資料表 SQL 不改。共用介面變更先交 A 協調。各模組頁面都要能在手機操作，提交時停用按鈕，結果來自實際資料庫。
+- 一律沿用 React／TypeScript／Vite、FastAPI、SQLite 及現有骨架；資料表 SQL 的任何新增或遷移須由 A 協調，既有資料不得直接重建。共用介面變更先交 A 協調。各模組頁面都要能在手機操作，提交時停用按鈕，結果來自實際資料庫。
 - Codex 在本機 repo 內可協助準備指定任務的功能分支。先檢查分支及未提交修改；新任務從最新 `main` 建立如 `feature/b-b1-inbound`，只允許安全的 fast-forward 更新，不在 main 寫。已有同任務分支則續用。若切換會覆蓋修改、分支分岔或衝突，停下說明；不自動丟棄、stash、reset 或 Force Push。
 - **功能分支不得追蹤 `origin/main`。** 建立新分支前先 `git fetch origin`，再用 `git switch --no-track -c feature/<組員>-<片段>-<名稱> origin/main`；`origin/main` 只是起點，不是 upstream。建立後立即執行 `git status --short --branch` 與 `git branch -vv`。若功能分支旁顯示 `[origin/main]`，必須停止工作並回報，先用 `git branch --unset-upstream` 修正；不得按 VS Code「同步變更」或 Push。
 - Commit／Push 前必須再次執行 `git branch --show-current` 與 `git branch -vv`。目前分支不可是 `main`，upstream 只能不存在或是同名的 `origin/feature/...`；任何功能分支若追蹤 `origin/main`，一律視為阻擋條件。首次上傳使用明確分支名，例如 `git push -u origin feature/b-b1-inbound`，不能把目的地寫成 `main`；確認 GitHub 出現該功能分支後才回報 A。Codex 即使被要求 Push，也要先做這項檢查。

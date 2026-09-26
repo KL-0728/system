@@ -11,7 +11,7 @@ router = APIRouter(prefix="/api/stock-options", tags=["stock-options"])
 
 @router.get("/lots", response_model=list[LotOption])
 def list_lot_options(
-    product_id: int | None = Query(default=None, gt=0),
+    product_id: int | None = Query(default=None, gt=0, le=9223372036854775807),
     _: AuthenticatedUser = Depends(get_current_user),
 ) -> list[LotOption]:
     sql = """
@@ -34,7 +34,7 @@ def list_lot_options(
 
 @router.get("/balances", response_model=list[BalanceOption])
 def list_balance_options(
-    lot_id: int | None = Query(default=None, gt=0),
+    lot_id: int | None = Query(default=None, gt=0, le=9223372036854775807),
     positive_only: bool = True,
     _: AuthenticatedUser = Depends(get_current_user),
 ) -> list[BalanceOption]:

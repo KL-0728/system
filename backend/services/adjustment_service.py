@@ -144,6 +144,8 @@ def review_adjustment(
                 delta = -damaged_qty
                 movement_kind = "SCRAP"
             if delta:
+                if delta > 0:
+                    require_active_location(connection, request["location_id"])
                 new_qty = change_balance(
                     connection, request["lot_id"], request["location_id"], delta
                 )

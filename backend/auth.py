@@ -1,5 +1,7 @@
 import secrets
+import time
 from collections.abc import Callable
+from threading import Lock
 
 from fastapi import Cookie, Depends, HTTPException, status
 
@@ -8,28 +10,38 @@ from backend.services.auth_service import AuthenticatedUser, find_active_user
 
 
 SESSION_COOKIE = "inventory_session"
-_sessions: dict[str, int] = {}
+SESSION_TTL_SECONDS = 8 * 60 * 60
+_sessions: dict[str, tuple[int, float]] = {}
+_sessions_lock = Lock()
 
 
 def create_session(user_id: int) -> str:
-    token = secrets.token_urlsafe(32)
-    _sessions[token] = user_id
+    now = time.time()
+    with _sessions_lock:
+        for expired in [key for key, (_, expires_at) in _sessions.items() if expires_at <= now]:
+            _sessions.pop(expired, None)
+        token = secrets.token_urlsafe(32)
+        _sessions[token] = (user_id, now + SESSION_TTL_SECONDS)
     return token
 
 
 def delete_session(token: str | None) -> None:
     if token:
-        _sessions.pop(token, None)
+        with _sessions_lock:
+            _sessions.pop(token, None)
 
 
 def get_current_user(
     inventory_session: str | None = Cookie(default=None),
 ) -> AuthenticatedUser:
-    user_id = _sessions.get(inventory_session or "")
-    if user_id is None:
+    with _sessions_lock:
+        session = _sessions.get(inventory_session or "")
+    if session is None or session[1] <= time.time():
+        delete_session(inventory_session)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="請先登入"
         )
+    user_id = session[0]
     with connect_database() as connection:
         user = find_active_user(connection, user_id)
     if user is None:

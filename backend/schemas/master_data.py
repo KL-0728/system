@@ -4,8 +4,8 @@ from pydantic import BaseModel, Field, model_validator
 class ProductWrite(BaseModel):
     name: str = Field(min_length=1, max_length=100)
     unit: str = Field(min_length=1, max_length=30)
-    min_qty: int = Field(ge=0)
-    target_qty: int = Field(ge=0)
+    min_qty: int = Field(ge=0, le=9223372036854775807, strict=True)
+    target_qty: int = Field(ge=0, le=9223372036854775807, strict=True)
     is_active: bool = True
 
     @model_validator(mode="after")
@@ -20,8 +20,8 @@ class ProductWrite(BaseModel):
 
 
 class LocationWrite(BaseModel):
-    warehouse_id: int = Field(gt=0)
-    code: str = Field(min_length=1, max_length=30)
+    warehouse_id: int = Field(gt=0, le=9223372036854775807, strict=True)
+    code: str = Field(min_length=4, max_length=30, pattern=r"^[A-Za-z]+-(0[1-9]|[1-9][0-9])$")
     is_active: bool = True
 
     @model_validator(mode="after")

@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 
 from backend.auth import (
     SESSION_COOKIE,
+    SESSION_TTL_SECONDS,
     create_session,
     delete_session,
     get_current_user,
@@ -15,7 +16,7 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=UserResponse)
-def login(payload: LoginRequest, response: Response) -> AuthenticatedUser:
+def login(payload: LoginRequest, request: Request, response: Response) -> AuthenticatedUser:
     with connect_database() as connection:
         user = authenticate(connection, payload.username, payload.password)
     if user is None:
@@ -23,6 +24,7 @@ def login(payload: LoginRequest, response: Response) -> AuthenticatedUser:
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="帳號或密碼錯誤",
         )
+    delete_session(request.cookies.get(SESSION_COOKIE))
     token = create_session(user.id)
     response.set_cookie(
         SESSION_COOKIE,
@@ -31,6 +33,7 @@ def login(payload: LoginRequest, response: Response) -> AuthenticatedUser:
         samesite="lax",
         secure=False,
         path="/",
+        max_age=SESSION_TTL_SECONDS,
     )
     return user
 

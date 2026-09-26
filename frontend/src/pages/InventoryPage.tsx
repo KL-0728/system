@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { getLocations, getProducts } from '../api/masterData';
 import { downloadInventoryCsv, getInventoryMovements, searchInventory, setLotExpiry, type InventoryFilters } from '../api/inventorySearch';
 import type { Location, Product } from '../types/masterData';
 import type { InventoryBalance, InventoryMovement } from '../types/inventory';
+import { productOptionLabel } from '../utils/productOptionLabel';
 
 const movementNames: Record<string, string> = {
   RECEIPT: '入庫', OUTBOUND: '出庫', TRANSFER: '移位',
@@ -92,37 +93,42 @@ export default function InventoryPage({ refreshKey = 0, role }: { refreshKey?: n
   const [locationId, setLocationId] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [version, setVersion] = useState(0);
+  const [appliedFilters, setAppliedFilters] = useState<InventoryFilters>({});
+  const latestSearch = useRef(0);
   const [searched, setSearched] = useState(false);
   const [exporting, setExporting] = useState(false);
   const groups = new Map<number, InventoryBalance[]>();
   for (const row of rows) groups.set(row.lot_id, [...(groups.get(row.lot_id) ?? []), row]);
 
   async function runSearch(filters: InventoryFilters) {
+    const searchId = ++latestSearch.current;
     setLoading(true);
     try {
-      setRows(await searchInventory(filters));
-      setVersion((value) => value + 1);
+      const result = await searchInventory(filters);
+      if (searchId !== latestSearch.current) return;
+      setRows(result);
+      setAppliedFilters(filters);
       setSearched(true);
       setError('');
     } catch {
-      setError('庫存查詢失敗，請確認連線後重試。');
+      if (searchId === latestSearch.current) setError('庫存查詢失敗，請確認連線後重試。');
     } finally {
-      setLoading(false);
+      if (searchId === latestSearch.current) setLoading(false);
     }
   }
 
   useEffect(() => {
     let active = true;
     Promise.all([getProducts(), getLocations(), searchInventory({})]).then(([nextProducts, nextLocations, nextRows]) => {
-      if (active) { setProducts(nextProducts); setLocations(nextLocations); setRows(nextRows); setSearched(true); setError(''); }
-    }).catch(() => { if (active) setError('庫存資料載入失敗，請重新進入頁面。'); })
-      .finally(() => { if (active) setLoading(false); });
+      if (active && latestSearch.current === 0) { setProducts(nextProducts); setLocations(nextLocations); setRows(nextRows); setSearched(true); setError(''); }
+      else if (active) { setProducts(nextProducts); setLocations(nextLocations); }
+    }).catch(() => { if (active && latestSearch.current === 0) setError('庫存資料載入失敗，請重新進入頁面。'); })
+      .finally(() => { if (active && latestSearch.current === 0) setLoading(false); });
     return () => { active = false; };
   }, []);
 
   useEffect(() => {
-    if (refreshKey > 0) void runSearch(filters());
+    if (refreshKey > 0) void runSearch(appliedFilters);
   }, [refreshKey]);
 
   function filters(): InventoryFilters {
@@ -140,7 +146,7 @@ export default function InventoryPage({ refreshKey = 0, role }: { refreshKey?: n
 
   async function handleExport() {
     setExporting(true); setError('');
-    try { await downloadInventoryCsv(filters()); }
+    try { await downloadInventoryCsv(appliedFilters); }
     catch { setError('CSV 匯出失敗，請確認連線後再試。'); }
     finally { setExporting(false); }
   }
@@ -153,8 +159,9 @@ export default function InventoryPage({ refreshKey = 0, role }: { refreshKey?: n
       <fieldset disabled={loading}>
         <label>品項<select value={productId} onChange={(event) => setProductId(event.target.value)}>
           <option value="">全部品項</option>
-          {products.map((product) => <option key={product.id} value={product.id}>{product.name}{product.is_active ? '' : '（已停用）'}</option>)}
+          {products.map((product) => <option key={product.id} value={product.id}>{productOptionLabel(product)}</option>)}
         </select></label>
+        {productId && <p className="hint">已選品項：{products.find((item) => item.id === Number(productId))?.name}</p>}
         <label>批次碼<input value={lotCode} maxLength={100} placeholder="可輸入部分批次碼" onChange={(event) => setLotCode(event.target.value)} /></label>
         <label>儲位<select value={locationId} onChange={(event) => setLocationId(event.target.value)}>
           <option value="">全部儲位</option>
@@ -165,13 +172,14 @@ export default function InventoryPage({ refreshKey = 0, role }: { refreshKey?: n
           <button type="button" className="secondary" onClick={() => {
             setProductId(''); setLotCode(''); setLocationId(''); void runSearch({});
           }}>清除條件</button>
-          <button type="button" className="secondary" disabled={exporting} onClick={() => void handleExport()}>{exporting ? '匯出中…' : '匯出庫存 CSV'}</button>
+          <button type="button" className="secondary" disabled={exporting || loading} onClick={() => void handleExport()}>{exporting ? '匯出中…' : '匯出目前查詢 CSV'}</button>
         </div>
+        <p className="hint">CSV 使用上次成功查詢的條件；修改欄位後請先按「查詢／更新」。匯出數量以下載當下資料庫為準。</p>
       </fieldset>
     </form>
     {loading && <p role="status">正在讀取資料庫庫存…</p>}
     {!loading && searched && rows.length === 0 && !error && <p role="status">沒有符合條件的庫存。</p>}
     <div className="inventory-results">{[...groups.values()].map((positions) =>
-      <InventoryLot key={positions[0].lot_id + ':' + version} positions={positions} role={role} onExpirySaved={() => runSearch(filters())} />)}</div>
+      <InventoryLot key={positions[0].lot_id} positions={positions} role={role} onExpirySaved={() => runSearch(appliedFilters)} />)}</div>
   </section>;
 }

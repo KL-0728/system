@@ -50,6 +50,10 @@ def run():
             product_id = connection.execute(
                 "INSERT INTO products (name, unit, min_qty, target_qty) VALUES ('零庫存示範', '箱', 1, 4)"
             ).lastrowid
+            long_product_id = connection.execute(
+                "INSERT INTO products (name, unit, min_qty, target_qty) VALUES (?, '箱', 1, 4)",
+                ("手機選單寬度測試" * 10,),
+            ).lastrowid
             lot_id = connection.execute("SELECT id FROM lots WHERE lot_code = 'LOT-20260924-901'").fetchone()[0]
             source_id = connection.execute("SELECT id FROM locations WHERE code = 'B-03'").fetchone()[0]
             target_id = connection.execute("SELECT id FROM locations WHERE code = 'A-01'").fetchone()[0]
@@ -75,6 +79,7 @@ def run():
                     errors = []
                     page.on("pageerror", lambda error: errors.append(str(error)))
                     login(page, "worker")
+                    no_overflow(page, 390)
                     page.evaluate("window.scrollTo(0, 0)")
                     page.get_by_role("navigation", name="快速前往功能").get_by_role("button", name="移位", exact=True).click()
                     page.wait_for_timeout(80)
@@ -83,7 +88,12 @@ def run():
                     destination = page.evaluate("window.scrollY")
                     assert 0 < halfway < destination, f"quick jump did not animate: {halfway}, {destination}"
                     shortage = page.locator(".shortage-panel")
+                    shortage.get_by_label("品項").select_option(str(long_product_id))
+                    no_overflow(page, 390)
                     shortage.get_by_label("品項").select_option(str(product_id))
+                    inbound = page.locator(".inbound-panel")
+                    inbound.get_by_label("品項").select_option(str(long_product_id))
+                    no_overflow(page, 390)
                     shortage.get_by_label("詢問數量").fill("3")
                     shortage.get_by_role("button", name="記錄缺貨需求").click()
                     expect(shortage.get_by_role("status")).to_contain_text("不會扣除庫存")
@@ -136,8 +146,19 @@ def run():
                     lot.get_by_label("到期日").fill((taiwan_today() + timedelta(days=3)).isoformat())
                     lot.get_by_role("button", name="儲存效期").click()
                     expect(inventory.locator(".inventory-lot").filter(has_text="LOT-20260924-901")).to_contain_text("即將到期")
+                    lot.get_by_role("button", name="查看異動歷史").click()
+                    inventory.get_by_role("button", name="查詢／更新").click()
+                    expect(inventory.locator(".inventory-lot").filter(has_text="LOT-20260924-901").get_by_role("button", name="收起異動歷史")).to_be_visible()
+                    inventory.get_by_label("品項").select_option(str(long_product_id))
+                    inventory.get_by_role("button", name="查詢／更新").click()
+                    expect(inventory.locator(".inventory-lot")).to_have_count(0)
+                    inventory.get_by_label("品項").select_option("")
+                    with admin_page.expect_download() as filtered_download:
+                        inventory.get_by_role("button", name="匯出目前查詢 CSV").click()
+                    assert "LOT-20260924-901" not in Path(filtered_download.value.path()).read_text(encoding="utf-8-sig")
+                    inventory.get_by_role("button", name="查詢／更新").click()
                     with admin_page.expect_download() as download_info:
-                        inventory.get_by_role("button", name="匯出庫存 CSV").click()
+                        inventory.get_by_role("button", name="匯出目前查詢 CSV").click()
                     download = download_info.value
                     assert download.suggested_filename.endswith(".csv")
                     assert "LOT-20260924-901" in Path(download.path()).read_text(encoding="utf-8-sig")
@@ -163,6 +184,9 @@ def run():
                     pending.nth(1).get_by_role("button", name="查看詳情與審核").click()
                     expect(pending.nth(1).locator(".review-inline-detail")).to_be_visible()
                     assert pending.nth(0).locator(".review-inline-detail").count() == 0
+                    pending.nth(1).get_by_role("button", name="核准申請").click()
+                    expect(admin_page.locator("#review-pending .review-completed")).to_contain_text("已核准")
+                    expect(admin_page.locator("#review-pending .review-completed")).to_contain_text("申請 #")
                     for width in (320, 390, 768, 1280):
                         no_overflow(admin_page, width)
                     assert errors == [], errors

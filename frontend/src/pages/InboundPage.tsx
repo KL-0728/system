@@ -7,6 +7,7 @@ import { getProducts } from '../api/masterData';
 import { getStockLocationOptions } from '../api/stockOptions';
 import type { Product } from '../types/masterData';
 import type { StockLocationOption } from '../types/stock';
+import { productOptionLabel } from '../utils/productOptionLabel';
 
 // en-CA formats as YYYY-MM-DD; the backend rejects dates after today in Taiwan time.
 const taiwanToday = () => new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Taipei' });
@@ -88,8 +89,9 @@ export default function InboundPage({ onStockChanged }: { onStockChanged?: () =>
       <fieldset disabled={busy || loading || uncertain}>
         <label>品項<select required value={productId} onChange={(event) => { setProductId(event.target.value); setSuccess(''); }}>
           <option value="">請選擇品項</option>
-          {products.map((row) => <option key={row.id} value={row.id}>{row.name}（{row.unit}）</option>)}
+          {products.map((row) => <option key={row.id} value={row.id}>{productOptionLabel(row)}</option>)}
         </select></label>
+        {product && <p className="hint">已選品項：{product.name}（{product.unit}）</p>}
         <label>儲位<select required value={locationId} onChange={(event) => { setLocationId(event.target.value); setSuccess(''); }}>
           <option value="">請選擇儲位</option>
           {locations.map((row) => <option key={row.location_id} value={row.location_id}>{row.location_code}（{row.warehouse_name}）</option>)}

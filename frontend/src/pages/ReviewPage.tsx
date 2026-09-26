@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import BackToTop from '../components/BackToTop';
 import QuickJump from '../components/QuickJump';
 import {
@@ -19,6 +19,7 @@ export default function ReviewPage() {
   const [uncertain, setUncertain] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [reviewSlot, setReviewSlot] = useState<number | null>(null);
   const inFlight = useRef(false);
 
   async function refresh() {
@@ -37,12 +38,12 @@ export default function ReviewPage() {
 
   async function choose(id: number) {
     if (busy || loading) return;
-    if (selected?.id === id) { setSelected(null); return; }
-    setLoading(true); setError(''); setSuccess(''); setReviewNote('');
+    if (selected?.id === id) { setSelected(null); setReviewSlot(null); setSuccess(''); setError(''); return; }
+    setLoading(true); setError(''); setSuccess(''); setReviewNote(''); setReviewSlot(null);
     try {
       setSelected(await getAdjustmentDetail(id));
     }
-    catch (failure) { setError(failure instanceof ApiError ? failure.message : '無法讀取申請詳情。'); }
+    catch (failure) { setSelected(null); setError(failure instanceof ApiError ? failure.message : '無法讀取申請詳情。'); }
     finally { setLoading(false); }
   }
 
@@ -52,6 +53,13 @@ export default function ReviewPage() {
     inFlight.current = true; setBusy(true); setError(''); setSuccess('');
     try {
       const result = await reviewAdjustment(selected.id, action, reviewNote.trim());
+      setReviewSlot(Math.max(0, pending.findIndex((item) => item.id === selected.id)));
+      setSelected({
+        ...selected, status: result.status, current_qty: result.new_qty,
+        reviewed_by: result.reviewed_by, reviewed_at: result.reviewed_at,
+        review_note: result.review_note, movement_id: result.movement_id,
+      });
+      setPending((rows) => rows.filter((item) => item.id !== selected.id));
       setSuccess(result.status === 'APPROVED'
         ? `申請 #${result.request_id} 已核准，餘量 ${result.new_qty} ${selected.unit}${result.movement_id ? `；異動編號 #${result.movement_id}` : '；差額為 0，沒有新增異動'}。`
         : `申請 #${result.request_id} 已駁回，餘量仍為 ${result.new_qty} ${selected.unit}。`);
@@ -74,6 +82,8 @@ export default function ReviewPage() {
 
   const detail = selected && <section className="review-inline-detail" aria-label={`申請 #${selected.id} 詳情`}>
     <h3>申請 #{selected.id} 詳情</h3>
+    {error && <p role="alert" className="error">{error}</p>}
+    {success && <p role="status" className="notice">{success}</p>}
     <div className="review-detail">
       <p><strong>狀態：</strong>{selected.status === 'PENDING' ? '待審' : selected.status === 'APPROVED' ? '已核准' : '已駁回'}</p>
       <p><strong>品項／批次／儲位：</strong>{selected.product_name}／{selected.lot_code}／{selected.location_code}</p>
@@ -81,7 +91,7 @@ export default function ReviewPage() {
       <p><strong>{selected.kind === 'COUNT' ? '現場實數' : '報廢量'}：</strong>{selected.kind === 'COUNT' ? selected.observed_qty : selected.damaged_qty} {selected.unit}　<strong>預計差額：</strong>{selected.difference > 0 ? '+' : ''}{selected.difference} {selected.unit}</p>
       <p><strong>送件人／時間：</strong>{selected.requester_name}／{timeText(selected.created_at)}（臺灣時間）</p>
       <p><strong>送件原因：</strong>{selected.reason}</p>
-      {selected.reviewed_at && <p><strong>審核人／時間：</strong>{selected.reviewer_name}／{timeText(selected.reviewed_at)}（臺灣時間）</p>}
+      {selected.reviewed_at && <p><strong>審核人／時間：</strong>{selected.reviewer_name ?? '管理者'}／{timeText(selected.reviewed_at)}（臺灣時間）</p>}
       {selected.review_note && <p><strong>審核備註：</strong>{selected.review_note}</p>}
       {selected.movement_id && <p><strong>異動編號：</strong>#{selected.movement_id}</p>}
     </div>
@@ -98,22 +108,26 @@ export default function ReviewPage() {
     <p className="eyebrow">管理者審核</p><h1>盤點與損耗審核</h1>
     <QuickJump items={[{ id: 'review-pending', label: '待審申請' }, { id: 'review-reviewed', label: '已審核紀錄' }]} />
     <p className="hint">核對申請原數、現場實數或報廢量，以及送件原因後再決定。核准才會更新餘量。</p>
-    {error && <p role="alert" className="error">{error}</p>}
-    {success && <p role="status" className="notice">{success}</p>}
+    {!selected && error && <p role="alert" className="error">{error}</p>}
     {loading && <p role="status">正在讀取申請…</p>}
     <button className="secondary" type="button" disabled={busy || loading} onClick={() => void refresh()}>更新申請與詳情</button>
     {uncertain && <div className="card"><p role="alert">上次審核結果未確認。請核對此筆狀態、異動紀錄和庫存餘量；查詢暫時沒有結果也不能代表操作失敗。</p>
       <button type="button" disabled={busy || loading || !selected} onClick={() => { setUncertain(false); setError(''); }}>我已核對結果，開始新的審核</button></div>}
     <section id="review-pending" className="card jump-target" aria-labelledby="pending-title">
       <h2 id="pending-title">待審申請</h2>
-      {!loading && pending.length === 0 && <p>目前沒有待審申請。</p>}
-      <div className="review-list">{pending.map((record) => <article key={record.id}>
+      {!loading && pending.length === 0 && reviewSlot === null && <p>目前沒有待審申請。</p>}
+      <div className="review-list">{pending.map((record, index) => <Fragment key={record.id}>
+        {reviewSlot === index && selected?.status !== 'PENDING' && <article className="review-completed">{detail}</article>}
+        <article>
         <strong>#{record.id} {record.kind === 'COUNT' ? '盤點' : '報廢'}：{record.product_name}</strong>
         <span>{record.lot_code}／{record.location_code}；送件人 {record.requester_name}</span>
         <span>原數 {record.original_qty} {record.unit}；{record.kind === 'COUNT' ? `實數 ${record.observed_qty}` : `報廢 ${record.damaged_qty}`} {record.unit}；差額 {record.difference > 0 ? '+' : ''}{record.difference} {record.unit}</span>
         <button type="button" className="secondary" disabled={busy || loading} aria-expanded={selected?.id === record.id} onClick={() => void choose(record.id)}>{selected?.id === record.id ? '收起詳情' : '查看詳情與審核'}</button>
         {selected?.id === record.id && detail}
-      </article>)}</div>
+        </article>
+      </Fragment>)}
+      {reviewSlot !== null && reviewSlot >= pending.length && selected?.status !== 'PENDING' && <article className="review-completed">{detail}</article>}
+      </div>
     </section>
     <section id="review-reviewed" className="card jump-target" aria-labelledby="reviewed-title">
       <h2 id="reviewed-title">最近已審核申請（最多 100 筆）</h2>
@@ -124,8 +138,8 @@ export default function ReviewPage() {
         <span>原數 {record.original_qty} {record.unit}；{record.kind === 'COUNT' ? `實數 ${record.observed_qty}` : `報廢 ${record.damaged_qty}`} {record.unit}</span>
         {record.reviewed_at && <span>審核人 {record.reviewer_name}／{timeText(record.reviewed_at)}（臺灣時間）</span>}
         {record.review_note && <span>{record.status === 'REJECTED' ? '駁回原因' : '審核備註'}：{record.review_note}</span>}
-        <button type="button" className="secondary" disabled={busy || loading} aria-expanded={selected?.id === record.id} onClick={() => void choose(record.id)}>{selected?.id === record.id ? '收起詳情' : '查看詳情'}</button>
-        {selected?.id === record.id && detail}
+        <button type="button" className="secondary" disabled={busy || loading} aria-expanded={selected?.id === record.id && reviewSlot === null} onClick={() => void choose(record.id)}>{selected?.id === record.id && reviewSlot === null ? '收起詳情' : '查看詳情'}</button>
+        {selected?.id === record.id && reviewSlot === null && detail}
       </article>)}</div>
     </section>
     <BackToTop />
