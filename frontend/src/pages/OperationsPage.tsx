@@ -8,6 +8,7 @@ import TransferPage from './TransferPage';
 import AdjustmentPage from './AdjustmentPage';
 import LocationMapPage from './LocationMapPage';
 import ShortagePage from './ShortagePage';
+import WarehouseCountPage from './WarehouseCountPage';
 
 export default function OperationsPage({ role }: { role: 'ADMIN' | 'WORKER' }) {
   const [inventoryRefresh, setInventoryRefresh] = useState(0);
@@ -29,6 +30,7 @@ export default function OperationsPage({ role }: { role: 'ADMIN' | 'WORKER' }) {
       { id: 'operation-inbound', label: '入庫' },
       { id: 'operation-outbound', label: '出庫' },
       { id: 'operation-transfer', label: '移位' },
+      { id: 'operation-warehouse-count', label: '整庫盤點' },
       { id: 'operation-adjustment', label: '盤點／損耗' },
       { id: 'operation-shortage', label: '缺貨需求' },
     ] : []),
@@ -42,6 +44,7 @@ export default function OperationsPage({ role }: { role: 'ADMIN' | 'WORKER' }) {
       <div id="operation-inbound" className="operation-anchor"><InboundPage onStockChanged={() => refreshStock('inbound')} /></div>
       <div id="operation-outbound" className="operation-anchor"><OutboundPage refreshKey={outboundRefresh} onStockChanged={() => refreshStock('outbound')} /></div>
       <div id="operation-transfer" className="operation-anchor"><TransferPage refreshKey={transferRefresh} onStockChanged={() => refreshStock('transfer')} /></div>
+      <div id="operation-warehouse-count" className="operation-anchor"><WarehouseCountPage /></div>
       <div id="operation-adjustment" className="operation-anchor"><AdjustmentPage refreshKey={adjustmentRefresh} onRequestCreated={() => { setOutboundRefresh((value) => value + 1); setTransferRefresh((value) => value + 1); }} /></div>
       <div id="operation-shortage" className="operation-anchor"><ShortagePage /></div>
     </> : <p className="notice">入庫、出庫、移位與盤點申請請使用倉管帳號登入操作；審核請點上方「審核申請」。</p>}

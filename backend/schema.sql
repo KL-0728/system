@@ -38,6 +38,7 @@ CREATE TABLE lots (
   lot_code TEXT NOT NULL UNIQUE,
   product_id INTEGER NOT NULL REFERENCES products(id),
   received_date TEXT NOT NULL,
+  received_at TEXT,
   expires_on TEXT,
   note TEXT NOT NULL DEFAULT '',
   created_by INTEGER NOT NULL REFERENCES users(id)
@@ -122,3 +123,31 @@ CREATE INDEX idx_movements_lot_time ON stock_movements(lot_id, created_at);
 CREATE INDEX idx_movements_kind_time ON stock_movements(kind, created_at);
 CREATE INDEX idx_requests_status ON adjustment_requests(status);
 CREATE INDEX idx_shortage_demands_product_time ON shortage_demands(product_id, created_at);
+
+CREATE TABLE warehouse_counts (
+  id INTEGER PRIMARY KEY,
+  warehouse_id INTEGER NOT NULL REFERENCES warehouses(id),
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'COMPLETE', 'CANCELLED')),
+  started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at TEXT
+);
+
+CREATE UNIQUE INDEX one_open_count_per_warehouse
+  ON warehouse_counts(warehouse_id) WHERE status = 'OPEN';
+
+CREATE TABLE warehouse_count_items (
+  id INTEGER PRIMARY KEY,
+  count_id INTEGER NOT NULL REFERENCES warehouse_counts(id),
+  location_id INTEGER NOT NULL REFERENCES locations(id),
+  lot_id INTEGER REFERENCES lots(id),
+  original_qty INTEGER NOT NULL CHECK (original_qty >= 0),
+  observed_qty INTEGER CHECK (observed_qty IS NULL OR observed_qty >= 0),
+  adjustment_request_id INTEGER UNIQUE REFERENCES adjustment_requests(id),
+  checked_at TEXT,
+  note TEXT NOT NULL DEFAULT '',
+  UNIQUE (count_id, location_id, lot_id)
+);
+
+CREATE UNIQUE INDEX one_empty_count_item_per_location
+  ON warehouse_count_items(count_id, location_id) WHERE lot_id IS NULL;

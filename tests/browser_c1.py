@@ -40,12 +40,13 @@ def run():
                     selector = page.locator(".outbound-panel").get_by_label("批次與儲位")
                     expect(selector).to_be_enabled()
                     with database.connect_database() as connection:
-                        row = connection.execute("""SELECT b.lot_id, b.location_id FROM stock_balances b
-                            JOIN locations l ON l.id=b.location_id WHERE l.code='B-03'""").fetchone()
-                        lot_id, location_id = tuple(row)
+                        row = connection.execute("""SELECT b.lot_id, b.location_id, lots.product_id FROM stock_balances b
+                            JOIN lots ON lots.id=b.lot_id JOIN locations l ON l.id=b.location_id WHERE l.code='B-03'""").fetchone()
+                        lot_id, location_id, product_id = tuple(row)
+                    page.locator(".outbound-panel").get_by_label("要出貨的品項").select_option(str(product_id))
                     selector.select_option(f"{lot_id}:{location_id}")
-                    quantity = page.get_by_label("出庫數量")
-                    submit = page.get_by_role("button", name="確認出庫", exact=True)
+                    quantity = page.get_by_label("實際取出的數量")
+                    submit = page.get_by_role("button", name="已取貨，立即登錄出庫", exact=True)
                     for invalid in ["0", "-1", "1.5", "99"]:
                         quantity.fill(invalid)
                         submit.click()
@@ -70,9 +71,10 @@ def run():
                     page.unroute("**/api/outbound", delayed)
                     page.reload()
                     page.get_by_role("button", name="倉管操作", exact=True).click()
+                    page.locator(".outbound-panel").get_by_label("要出貨的品項").select_option(str(product_id))
                     expect(selector).to_be_enabled()
                     selector.select_option(f"{lot_id}:{location_id}")
-                    expect(page.locator(".outbound-panel .notice")).to_contain_text("目前餘量：3 籠")
+                    expect(page.locator(".outbound-panel p.notice")).to_contain_text("目前餘量：3 籠")
 
                     def lose_response(route):
                         if route.request.method == "POST":
@@ -88,20 +90,20 @@ def run():
                     expect(page.get_by_role("alert").first).to_contain_text("結果未確認")
                     expect(submit).to_be_disabled()
                     page.unroute("**/api/outbound", lose_response)
-                    page.get_by_role("button", name="查詢紀錄／更新餘量").click()
+                    page.get_by_role("button", name="更新可用庫存與出庫紀錄").click()
                     expect(page.locator(".outbound-records article")).to_have_count(2)
                     expect(submit).to_be_disabled()
                     page.get_by_role("button", name="我已核對紀錄，開始新的操作").click()
                     expect(quantity).to_have_value("")
-                    expect(page.locator(".outbound-panel .notice")).to_contain_text("目前餘量：2 籠")
+                    expect(page.locator(".outbound-panel p.notice")).to_contain_text("目前餘量：2 籠")
                     with database.connect_database() as connection:
                         worker_id = connection.execute("SELECT id FROM users WHERE username='worker'").fetchone()[0]
                         connection.execute("""INSERT INTO adjustment_requests
                             (kind, lot_id, location_id, original_qty, observed_qty, reason, requested_by)
                             VALUES ('COUNT', ?, ?, 2, 1, '瀏覽器測試', ?)""", (lot_id, location_id, worker_id))
                         connection.commit()
-                    page.get_by_role("button", name="查詢紀錄／更新餘量").click()
-                    expect(page.locator(".outbound-panel .notice")).to_contain_text("待審凍結")
+                    page.get_by_role("button", name="更新可用庫存與出庫紀錄").click()
+                    expect(page.locator(".outbound-panel p.notice")).to_contain_text("待審凍結")
                     expect(submit).to_be_disabled()
                     for width in [320, 390, 1280]:
                         page.set_viewport_size({"width": width, "height": 844})

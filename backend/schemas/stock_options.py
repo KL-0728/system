@@ -8,6 +8,7 @@ class LotOption(BaseModel):
     product_name: str
     unit: str
     received_date: str
+    received_at: str | None = None
     total_qty: int
 
 
@@ -18,6 +19,7 @@ class BalanceOption(BaseModel):
     product_name: str
     unit: str
     received_date: str
+    received_at: str | None = None
     location_id: int
     location_code: str
     warehouse_code: str

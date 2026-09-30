@@ -113,7 +113,8 @@ export default function TransferPage({ refreshKey = 0, onStockChanged }: {
       </fieldset>
     </form>
     <div className="transfer-controls">
-      <button className="secondary" type="button" disabled={busy || loading} onClick={() => void refresh()}>查詢移位紀錄／更新餘量</button>
+      <button className="secondary" type="button" disabled={busy || loading} onClick={() => void refresh()}>更新各處餘量與移位紀錄</button>
+      <p className="hint">重新讀取資料庫；不會再次移位。</p>
       {uncertain && <><p role="alert">上次移位結果未確認。核對批次、來源、目標、數量、時間及操作者，確認伺服器已處理完畢後再決定是否重新操作；查不到紀錄不代表未成功。</p>
         <button type="button" disabled={!ready || loading || busy} onClick={() => { setUncertain(false); setQty(''); setError(''); }}>我已核對移位紀錄，開始新的操作</button></>}
     </div>

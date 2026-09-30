@@ -19,6 +19,7 @@ class InboundCreate(BaseModel):
     location_id: PositiveInt
     qty: PositiveInt
     received_date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
+    received_at: datetime | None = None
     note: str = Field(default="", max_length=500)
 
     @field_validator("received_date")
@@ -33,6 +34,15 @@ class InboundCreate(BaseModel):
             raise ValueError("入庫日期不可晚於今天（臺灣時間）")
         return value
 
+    @field_validator("received_at")
+    @classmethod
+    def validate_received_at(cls, value: datetime | None) -> datetime | None:
+        if value is not None and (value.tzinfo is None or value.utcoffset() is None):
+            raise ValueError("進貨時間必須包含時區")
+        if value is not None and value > datetime.now(TAIWAN_TIME):
+            raise ValueError("進貨時間不可晚於現在")
+        return value
+
 
 class InboundResult(BaseModel):
     lot_id: int
@@ -40,6 +50,7 @@ class InboundResult(BaseModel):
     product_id: int
     location_id: int
     received_date: str
+    received_at: str | None = None
     qty: int
     movement_id: int
 
@@ -51,6 +62,7 @@ class InboundRecord(BaseModel):
     product_name: str
     unit: str
     received_date: str
+    received_at: str | None = None
     location_id: int
     location_code: str
     qty: int

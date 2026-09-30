@@ -44,6 +44,17 @@ export default function LocationMapPage({ refreshKey = 0 }: { refreshKey?: numbe
     {error && <p className="error" role="alert">{error}</p>}
     <div className="warehouse-map-list">{warehouses.map((warehouse) => <section key={warehouse.id} aria-label={warehouse.name}>
       <h3>{warehouse.name}</h3>
+      <div className="warehouse-summary">{(() => {
+        const totals = new Map<string, { name: string; unit: string; qty: number }>();
+        for (const row of rows.filter((item) => item.warehouse_code === warehouse.code && item.qty > 0)) {
+          const key = `${row.product_id}:${row.unit}`;
+          const current = totals.get(key) ?? { name: row.product_name, unit: row.unit, qty: 0 };
+          current.qty += row.qty; totals.set(key, current);
+        }
+        return totals.size ? [...totals.values()].map((item) => <article key={`${item.name}:${item.unit}`}>
+          <span>{item.name}</span><strong>{item.qty} {item.unit}</strong>
+        </article>) : <p>目前沒有正餘量庫存。</p>;
+      })()}</div>
       <div className="location-map-grid">{locations.filter((item) => item.warehouse_id === warehouse.id)
         .sort((a, b) => a.code.localeCompare(b.code))
         .map((location) => {

@@ -5,6 +5,7 @@ export interface LotOption {
   product_name: string;
   unit: string;
   received_date: string;
+  received_at: string | null;
   total_qty: number;
 }
 
@@ -15,6 +16,7 @@ export interface BalanceOption {
   product_name: string;
   unit: string;
   received_date: string;
+  received_at: string | null;
   location_id: number;
   location_code: string;
   warehouse_code: string;

@@ -102,8 +102,11 @@ article span { color: var(--muted); font-size: .92rem; }
 .inbound-records { display: grid; gap: 12px; }
 .inventory-panel { min-width: 0; overflow-wrap: anywhere; }
 .inventory-panel fieldset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.inventory-filter-field { min-width: 0; }
+.inventory-filter-field .hint { margin: 6px 0 0; overflow-wrap: anywhere; }
 .inventory-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .inventory-panel .inventory-actions { grid-column: 1 / -1; }
+.inventory-export-hint { grid-column: 1 / -1; margin: 0; }
 .inventory-results, .inventory-positions, .inventory-history { display: grid; gap: 10px; margin-top: 16px; }
 .inventory-lot { min-width: 0; border: 1px solid var(--border); background: var(--raised); }
 .inventory-lot h3, .inventory-lot p { margin: 0; }
@@ -143,6 +146,15 @@ article span { color: var(--muted); font-size: .92rem; }
 .location-tile span { font-size: .85rem; font-weight: 500; }
 .location-tile.selected { border-color: var(--accent); }
 .location-map-detail { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border); scroll-margin-top: 90px; }
+.warehouse-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; margin-bottom: 14px; }
+.warehouse-summary article { border: 1px solid var(--border); }
+.count-panel, .count-session, .count-items { min-width: 0; }
+.count-start { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 12px; margin: 18px 0; }
+.count-items { display: grid; gap: 12px; margin-top: 18px; }
+.count-item { border: 1px solid var(--border); }
+.count-item form { margin-top: 10px; }
+.count-item .notice { margin: 8px 0 0; }
+.outbound-panel .notice button { display: block; margin-top: 10px; }
 .expiry-alert { color: var(--danger); font-weight: 700; }
 .expiry-editor { margin: 12px 0; }
 .expiry-editor summary { cursor: pointer; color: var(--secondary-text); font-weight: 700; }
@@ -166,6 +178,8 @@ article span { color: var(--muted); font-size: .92rem; }
   .manage-list article { align-items: stretch; flex-wrap: wrap; }
   .manage-list article div { flex: 1 1 100%; }
   .manage-list article button { width: 100%; }
+  .count-start { grid-template-columns: minmax(0, 1fr); }
+  .count-item button, .count-start button { width: 100%; }
 }
 @media (max-width: 450px) {
   .login-shell { padding: 12px; }

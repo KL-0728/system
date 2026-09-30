@@ -1,6 +1,6 @@
 import sqlite3
 
-from backend.schemas.inbound import InboundCreate, InboundResult
+from backend.schemas.inbound import InboundCreate, InboundResult, TAIWAN_TIME
 from backend.services.stock_service import (
     StockError,
     change_balance,
@@ -36,6 +36,9 @@ def next_lot_code(connection: sqlite3.Connection, received_date: str) -> str:
 
 def create_inbound(payload: InboundCreate, actor_id: int) -> InboundResult:
     note = payload.note.strip()
+    received_at = payload.received_at.astimezone(TAIWAN_TIME).isoformat(timespec="minutes") if payload.received_at else None
+    if received_at and not received_at.startswith(payload.received_date):
+        raise StockError("進貨時間的日期必須與入庫日期相同")
     # One transaction: validate -> lot -> balance -> RECEIPT; any failure rolls back all.
     with stock_transaction() as connection:
         require_active_product(connection, payload.product_id)
@@ -43,10 +46,10 @@ def create_inbound(payload: InboundCreate, actor_id: int) -> InboundResult:
         lot_code = next_lot_code(connection, payload.received_date)
         cursor = connection.execute(
             """
-            INSERT INTO lots (lot_code, product_id, received_date, note, created_by)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO lots (lot_code, product_id, received_date, received_at, note, created_by)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (lot_code, payload.product_id, payload.received_date, note, actor_id),
+            (lot_code, payload.product_id, payload.received_date, received_at, note, actor_id),
         )
         lot_id = int(cursor.lastrowid)
         qty = change_balance(
@@ -59,6 +62,7 @@ def create_inbound(payload: InboundCreate, actor_id: int) -> InboundResult:
         result = InboundResult(
             lot_id=lot_id, lot_code=lot_code, product_id=payload.product_id,
             location_id=payload.location_id, received_date=payload.received_date,
+            received_at=received_at,
             qty=qty, movement_id=movement_id,
         )
     return result

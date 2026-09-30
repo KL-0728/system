@@ -16,7 +16,7 @@ def list_lot_options(
 ) -> list[LotOption]:
     sql = """
         SELECT lots.id AS lot_id, lots.lot_code, products.id AS product_id,
-               products.name AS product_name, products.unit, lots.received_date,
+               products.name AS product_name, products.unit, lots.received_date, lots.received_at,
                COALESCE(SUM(stock_balances.qty), 0) AS total_qty
         FROM lots
         JOIN products ON products.id = lots.product_id
@@ -26,7 +26,7 @@ def list_lot_options(
     if product_id is not None:
         sql += " WHERE products.id = ?"
         parameters = (product_id,)
-    sql += " GROUP BY lots.id ORDER BY lots.received_date, lots.lot_code"
+    sql += " GROUP BY lots.id ORDER BY lots.received_date, lots.received_at, lots.lot_code"
     with connect_database() as connection:
         rows = connection.execute(sql, parameters).fetchall()
     return [LotOption(**dict(row)) for row in rows]
@@ -50,7 +50,7 @@ def list_balance_options(
         rows = connection.execute(
             f"""
             SELECT lots.id AS lot_id, lots.lot_code, products.id AS product_id,
-                   products.name AS product_name, products.unit, lots.received_date,
+                   products.name AS product_name, products.unit, lots.received_date, lots.received_at,
                    locations.id AS location_id, locations.code AS location_code,
                    warehouses.code AS warehouse_code, stock_balances.qty,
                    EXISTS (
@@ -66,7 +66,7 @@ def list_balance_options(
             JOIN warehouses ON warehouses.id = locations.warehouse_id
             {where}
             ORDER BY products.name COLLATE NOCASE, lots.received_date,
-                     lots.lot_code, locations.code
+                     lots.received_at, lots.lot_code, locations.code
             """,
             parameters,
         ).fetchall()

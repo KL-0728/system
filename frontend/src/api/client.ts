@@ -31,7 +31,7 @@ export async function apiRequest<T>(path: string, options: RequestInit = {}): Pr
   try {
     response = await fetch(path, { ...options, signal: controller.signal, credentials: 'same-origin', headers: { ...(options.body ? { 'Content-Type': 'application/json' } : {}), ...options.headers } });
   } catch (error) {
-    if (controller.signal.aborted && !options.signal?.aborted) throw new ApiError('連線逾時，請確認結果後重試。', 0);
+    if (controller.signal.aborted) throw new ApiError('連線逾時，請確認結果後重試。', 0);
     throw error;
   } finally {
     window.clearTimeout(timeout);

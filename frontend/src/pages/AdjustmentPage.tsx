@@ -107,7 +107,8 @@ export default function AdjustmentPage({ refreshKey = 0, onRequestCreated }: {
       </fieldset>
     </form>
     <div className="adjustment-controls">
-      <button type="button" className="secondary" disabled={busy || loading} onClick={() => void refresh()}>查詢我的申請／更新餘量</button>
+      <button type="button" className="secondary" disabled={busy || loading} onClick={() => void refresh()}>更新我的申請與餘量</button>
+      <p className="hint">重新讀取審核結果與帳面庫存；不會再送一次申請。</p>
       {uncertain && <><p role="alert">請核對最近的批次、儲位、種類、數量與時間；查不到紀錄也不能代表送件失敗。</p>
         <button type="button" disabled={!ready || loading || busy} onClick={() => { setUncertain(false); setAmount(''); setReason(''); setError(''); }}>我已核對紀錄，開始新的申請</button></>}
     </div>

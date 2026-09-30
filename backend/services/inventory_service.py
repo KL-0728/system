@@ -30,7 +30,7 @@ def search_inventory(
                 FROM stock_balances GROUP BY lot_id
             )
             SELECT lots.id AS lot_id, lots.lot_code, products.id AS product_id,
-                   products.name AS product_name, products.unit, lots.received_date,
+                   products.name AS product_name, products.unit, lots.received_date, lots.received_at,
                    lots.expires_on,
                    receiver.display_name AS received_by,
                    locations.id AS location_id, locations.code AS location_code,

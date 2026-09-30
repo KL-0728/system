@@ -50,7 +50,7 @@ function InventoryLot({ positions, role, onExpirySaved }: {
 
   return <article className="inventory-lot">
     <h3>{lot.product_name}／{lot.lot_code}</h3>
-    <p>入庫日 {lot.received_date} · 庫齡 {lot.age_days} 天 · 入庫操作者 {lot.received_by}</p>
+    <p>實際進貨 {lot.received_at ? lot.received_at.replace('T', ' ').slice(0, 16) : `${lot.received_date}（舊資料未記時間）`} · 庫齡 {lot.age_days} 天 · 登錄者 {lot.received_by}</p>
     <p className={lot.expiry_status === '已到期' || lot.expiry_status === '即將到期' ? 'expiry-alert' : 'hint'}>
       到期日：{lot.expires_on ?? '未提供'}{lot.expires_on && `（${lot.expiry_status}）`}
     </p>
@@ -157,11 +157,12 @@ export default function InventoryPage({ refreshKey = 0, role }: { refreshKey?: n
     {error && <p role="alert" className="error">{error}</p>}
     <form onSubmit={handleSubmit}>
       <fieldset disabled={loading}>
-        <label>品項<select value={productId} onChange={(event) => setProductId(event.target.value)}>
+        <div className="inventory-filter-field"><label>品項<select value={productId} onChange={(event) => setProductId(event.target.value)}>
           <option value="">全部品項</option>
           {products.map((product) => <option key={product.id} value={product.id}>{productOptionLabel(product)}</option>)}
         </select></label>
-        {productId && <p className="hint">已選品項：{products.find((item) => item.id === Number(productId))?.name}</p>}
+          {productId && <p className="hint">已選：{products.find((item) => item.id === Number(productId))?.name}</p>}
+        </div>
         <label>批次碼<input value={lotCode} maxLength={100} placeholder="可輸入部分批次碼" onChange={(event) => setLotCode(event.target.value)} /></label>
         <label>儲位<select value={locationId} onChange={(event) => setLocationId(event.target.value)}>
           <option value="">全部儲位</option>
@@ -174,7 +175,7 @@ export default function InventoryPage({ refreshKey = 0, role }: { refreshKey?: n
           }}>清除條件</button>
           <button type="button" className="secondary" disabled={exporting || loading} onClick={() => void handleExport()}>{exporting ? '匯出中…' : '匯出目前查詢 CSV'}</button>
         </div>
-        <p className="hint">CSV 使用上次成功查詢的條件；修改欄位後請先按「查詢／更新」。匯出數量以下載當下資料庫為準。</p>
+        <p className="hint inventory-export-hint">CSV 使用上次成功查詢的條件；修改篩選後，先按「查詢／更新」。匯出數量以下載當下資料庫為準。</p>
       </fieldset>
     </form>
     {loading && <p role="status">正在讀取資料庫庫存…</p>}

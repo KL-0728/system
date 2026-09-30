@@ -32,11 +32,11 @@ def inventory_csv(
 ) -> Response:
     output = StringIO(newline="")
     writer = csv.writer(output)
-    writer.writerow(["品項", "單位", "批次碼", "儲位", "冷凍庫", "儲位數量", "全批合計", "入庫日", "庫齡天數", "到期日", "效期狀態", "入庫操作者"])
+    writer.writerow(["品項", "單位", "批次碼", "儲位", "冷凍庫", "儲位數量", "全批合計", "入庫日", "實際進貨時間", "庫齡天數", "到期日", "效期狀態", "入庫操作者"])
     for row in search_inventory(product_id, lot_code, location_id):
         writer.writerow([_csv_cell(value) for value in (
             row.product_name, row.unit, row.lot_code, row.location_code,
-            row.warehouse_name, row.qty, row.total_qty, row.received_date,
+            row.warehouse_name, row.qty, row.total_qty, row.received_date, row.received_at,
             row.age_days, row.expires_on, row.expiry_status, row.received_by,
         )])
     filename = f"inventory-{datetime.now(timezone.utc):%Y%m%d}.csv"
@@ -94,7 +94,7 @@ def inbound_records(
     with connect_database() as connection:
         rows = connection.execute(
             f"""SELECT m.id AS movement_id, m.lot_id, lots.lot_code,
-                       products.name AS product_name, products.unit, lots.received_date,
+                       products.name AS product_name, products.unit, lots.received_date, lots.received_at,
                        m.to_location_id AS location_id, locations.code AS location_code,
                        m.qty, users.display_name AS actor_name, m.note,
                        strftime('%Y-%m-%dT%H:%M:%SZ', m.created_at) AS created_at

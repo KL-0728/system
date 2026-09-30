@@ -8,6 +8,7 @@ class InventoryBalance(BaseModel):
     product_name: str
     unit: str
     received_date: str
+    received_at: str | None = None
     expires_on: str | None
     expiry_status: str
     age_days: int

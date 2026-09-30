@@ -5,6 +5,7 @@ export interface InventoryBalance {
   product_name: string;
   unit: string;
   received_date: string;
+  received_at: string | null;
   expires_on: string | null;
   expiry_status: '未提供' | '未到期' | '即將到期' | '已到期';
   age_days: number;
