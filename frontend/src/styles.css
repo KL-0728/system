@@ -101,7 +101,7 @@ article span { color: var(--muted); font-size: .92rem; }
 .inbound-controls { display: grid; gap: 12px; margin-top: 20px; }
 .inbound-records { display: grid; gap: 12px; }
 .inventory-panel { min-width: 0; overflow-wrap: anywhere; }
-.inventory-panel fieldset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; min-width: 0; border: 0; margin: 0; padding: 0; }
+.inventory-panel fieldset { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 12px; min-width: 0; border: 0; margin: 0; padding: 0; }
 .inventory-filter-field { min-width: 0; }
 .inventory-filter-field .hint { margin: 6px 0 0; overflow-wrap: anywhere; }
 .inventory-actions { display: flex; flex-wrap: wrap; gap: 10px; }

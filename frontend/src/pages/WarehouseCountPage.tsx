@@ -100,7 +100,7 @@ export default function WarehouseCountPage() {
   const pending = session?.items.filter((item) => item.adjustment_status === 'PENDING').length ?? 0;
   return <section className="card count-panel" aria-labelledby="count-title">
     <h2 id="count-title">整庫盤點</h2>
-    <p className="hint">先選倉庫，再逐格核對實物。數量相符直接確認；有盤差會建立待審申請，核准前帳面不變。腐爛品請在盤點完成後另用「盤點／損耗」申請報廢。</p>
+    <p className="hint">先選倉庫，再逐格核對實物。數量相符只記錄確認，不需審核；現場實數與帳面不同時，填原因後才會建立待審盤差申請，由管理者在「審核申請」處理。腐爛品請在盤點完成後另用「盤點／損耗」申請報廢。</p>
     {error && <p role="alert" className="error">{error}</p>}
     {notice && <p role="status" className="notice">{notice}</p>}
     <button type="button" className="secondary" disabled={loading || busy} onClick={() => void refresh()}>重新讀取盤點進度</button>
@@ -116,9 +116,9 @@ export default function WarehouseCountPage() {
     </select></label>}
     {session && <div className="count-session">
       <h3>{session.warehouse_name}｜{session.status === 'OPEN' ? '進行中' : session.status === 'COMPLETE' ? '已完成' : '已取消'}</h3>
-      <p className="notice">進度 {checked}/{total} 格；盤差待審申請 {pending} 筆。已確認不代表待審盤差已核准。</p>
+      <p className="notice">進度 {checked}/{total} 格；盤差待審申請 {pending} 筆。{pending > 0 ? '這些申請須由管理者另外審核，完成整庫盤點不會自動核准。' : '目前沒有需要審核的盤差。'}</p>
       {session.status === 'OPEN' && <div className="button-row">
-        <button type="button" disabled={busy || checked !== total} onClick={() => void action(() => completeWarehouseCount(session.id), '整庫盤點已完成；盤差仍須管理者審核。')}>完成整庫盤點</button>
+        <button type="button" disabled={busy || checked !== total} onClick={() => void action(() => completeWarehouseCount(session.id), pending > 0 ? `整庫盤點已完成；另有 ${pending} 筆待審盤差，請管理者至「審核申請」處理。` : '整庫盤點已完成；目前沒有待審盤差，無須審核。')}>完成整庫盤點</button>
         <button type="button" className="secondary" disabled={busy} onClick={() => void action(() => cancelWarehouseCount(session.id), '盤點已取消；已送出的盤差申請仍保留，請至審核頁處理。')}>取消本次盤點</button>
       </div>}
       <div className="count-items">{session.items.map((item) => <CountRow key={item.id} item={item} countId={session.id} isOpen={session.status === 'OPEN'} busy={busy || session.status !== 'OPEN'} onSaved={(result) => { acceptSession(result); setNotice('盤點進度已更新，請核對剩餘項目。'); }} />)}</div>

@@ -25,13 +25,20 @@ def check_width(page, name, width):
     assert dimensions["document"] <= dimensions["viewport"], f"{name} at {width}px: {dimensions}"
     assert dimensions["body"] <= dimensions["viewport"], f"{name} at {width}px: {dimensions}"
     if name.endswith("倉管操作"):
-        filter_tops = page.evaluate("""() => {
+        filter_layout = page.evaluate("""() => {
           const fieldset = document.querySelector('.inventory-panel fieldset');
           const fields = [fieldset.querySelector('.inventory-filter-field'), ...fieldset.querySelectorAll(':scope > label')];
-          return fields.map(el => Math.round(el.getBoundingClientRect().top));
+          return {
+            labels: fields.map(el => Math.round(el.getBoundingClientRect().top)),
+            controls: [...fieldset.querySelectorAll('.inventory-filter-field select, :scope > label > input, :scope > label > select')]
+              .map(el => Math.round(el.getBoundingClientRect().top)),
+          };
         }""")
+        filter_tops = filter_layout["labels"]
         if width > 650:
             assert max(filter_tops) - min(filter_tops) <= 2, f"inventory filters do not align at {width}px: {filter_tops}"
+            control_tops = filter_layout["controls"]
+            assert len(control_tops) == 3 and max(control_tops) - min(control_tops) <= 2, f"inventory controls do not align at {width}px: {control_tops}"
         else:
             assert filter_tops == sorted(filter_tops) and len(set(filter_tops)) == 3, f"inventory filters do not stack at {width}px: {filter_tops}"
     if name == "worker 倉管操作":
@@ -112,6 +119,8 @@ def run(screenshots=False):
                             destinations += ["審核申請", "決策報表", "基本資料"]
                         for name in destinations:
                             page.get_by_role("button", name=name, exact=True).click()
+                            if name == "倉管操作":
+                                page.locator(".inventory-panel select").first.select_option(index=1)
                             for width in WIDTHS:
                                 page.set_viewport_size({"width": width, "height": 844})
                                 check_width(page, f"{role} {name}", width)

@@ -71,6 +71,7 @@ def run():
                     count.locator(".count-item").first.get_by_role("button", name="確認這一格").click()
                     expect(count.get_by_text("進度 2/2 格")).to_be_visible()
                     count.get_by_role("button", name="完成整庫盤點").click()
+                    expect(count.get_by_text("整庫盤點已完成；目前沒有待審盤差，無須審核。", exact=True)).to_be_visible()
                     expect(count.get_by_role("heading", name="A 冷凍庫｜已完成")).to_be_visible()
                     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
                     assert errors == [], errors

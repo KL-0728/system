@@ -1,6 +1,6 @@
 # 竹南冷凍倉儲庫存管理系統 — spec.md
 
-版本：4.2（2026-09-27 校訂資料與操作防護；保留既有 SQLite 資料）
+版本：4.2（2026-09-30 補齊整庫盤點結構與示範資料庫重建流程）
 依據：老師提供的《竹南-新版.pdf》個案，以及課堂使用手機、電腦現場操作並展示結果的要求。  
 定位：做出能完整操作、資料真實保存的小型系統；介面與展示資料使用繁體中文。
 
@@ -8,7 +8,7 @@
 
 ### 2026-09-30 維護驗收補充
 
-入庫另存實際進貨時刻 `lots.received_at`（含時區），`received_date` 保留供舊資料與日期查詢；舊批次時刻未知不可猜。出庫先以品項找貨，顯示最早有餘量且無待審凍結的批次與儲位作為先進先出建議；後端仍允許倉管依現場品質選其他批次。整庫盤點以 `warehouse_counts` 與 `warehouse_count_items` 保存倉庫、逐格快照、實數、進度及完成紀錄，包含空儲位。盤差在同一寫入交易建立既有 `adjustment_requests`，不直接改餘量；管理者審核規則維持不變。腐爛貨以 `SCRAP` 另行申請，不混入盤虧。既有資料庫以保留備份的增量遷移升級，不重建資料。
+入庫另存實際進貨時刻 `lots.received_at`（含時區），`received_date` 保留供舊資料與日期查詢；舊批次時刻未知不可猜。出庫先以品項找貨，顯示最早有餘量且無待審凍結的批次與儲位作為先進先出建議；後端仍允許倉管依現場品質選其他批次。整庫盤點以 `warehouse_counts` 與 `warehouse_count_items` 保存倉庫、逐格快照、實數、進度及完成紀錄，包含空儲位。盤差在同一寫入交易建立既有 `adjustment_requests`，不直接改餘量；管理者審核規則維持不變。腐爛貨以 `SCRAP` 另行申請，不混入盤虧。需要保留現有資料的升級使用增量遷移；要從頭演練則依第 4.5 節刪除並重建示範資料庫。
 
 ## 1. 題目、目標與設計邊界
 
@@ -90,7 +90,7 @@
 
 ## 4. 固定資料庫設計（四個模組共用）
 
-本次作業統一使用 **SQLite**。以下 SQL 對應 `backend/schema.sql`，由 A 維護。4.2 版為加做增補 `lots.expires_on` 與 `shortage_demands`；既有資料庫需先備份再執行可重跑的 `python -m backend.migrate_extras`，修改建表 SQL 不會自動更新既有資料庫，且不得直接刪庫套用新結構。
+本次作業統一使用 **SQLite**。以下 SQL 對應 `backend/schema.sql`，由 A 維護，包含加做與 2026-09-30 維護功能。修改建表 SQL 不會自動更新現有資料庫：要**保留現有紀錄**時依 README 執行遷移；要**清空示範資料重新演練**時依第 4.5 節重建。
 
 ### 4.1 統一約定
 
@@ -143,6 +143,7 @@ CREATE TABLE lots (
   lot_code TEXT NOT NULL UNIQUE,
   product_id INTEGER NOT NULL REFERENCES products(id),
   received_date TEXT NOT NULL,
+  received_at TEXT,
   expires_on TEXT,
   note TEXT NOT NULL DEFAULT '',
   created_by INTEGER NOT NULL REFERENCES users(id)
@@ -227,11 +228,39 @@ CREATE INDEX idx_movements_lot_time ON stock_movements(lot_id, created_at);
 CREATE INDEX idx_movements_kind_time ON stock_movements(kind, created_at);
 CREATE INDEX idx_requests_status ON adjustment_requests(status);
 CREATE INDEX idx_shortage_demands_product_time ON shortage_demands(product_id, created_at);
+
+CREATE TABLE warehouse_counts (
+  id INTEGER PRIMARY KEY,
+  warehouse_id INTEGER NOT NULL REFERENCES warehouses(id),
+  created_by INTEGER NOT NULL REFERENCES users(id),
+  status TEXT NOT NULL DEFAULT 'OPEN' CHECK (status IN ('OPEN', 'COMPLETE', 'CANCELLED')),
+  started_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  completed_at TEXT
+);
+
+CREATE UNIQUE INDEX one_open_count_per_warehouse
+  ON warehouse_counts(warehouse_id) WHERE status = 'OPEN';
+
+CREATE TABLE warehouse_count_items (
+  id INTEGER PRIMARY KEY,
+  count_id INTEGER NOT NULL REFERENCES warehouse_counts(id),
+  location_id INTEGER NOT NULL REFERENCES locations(id),
+  lot_id INTEGER REFERENCES lots(id),
+  original_qty INTEGER NOT NULL CHECK (original_qty >= 0),
+  observed_qty INTEGER CHECK (observed_qty IS NULL OR observed_qty >= 0),
+  adjustment_request_id INTEGER UNIQUE REFERENCES adjustment_requests(id),
+  checked_at TEXT,
+  note TEXT NOT NULL DEFAULT '',
+  UNIQUE (count_id, location_id, lot_id)
+);
+
+CREATE UNIQUE INDEX one_empty_count_item_per_location
+  ON warehouse_count_items(count_id, location_id) WHERE lot_id IS NULL;
 ```
 
 ### 4.3 資料關係、流程和計算
 
-`products` 1 對多 `lots`；`warehouses` 1 對多 `locations`；`lots` 與 `locations` 透過 `stock_balances` 多對多。每筆庫存變動新增一筆 `stock_movements`。`COUNT_GAIN`、`COUNT_LOSS`、`SCRAP` 一定連結一筆已核准的 `adjustment_requests`；盤點沒有差異時只核准申請，不產生數量為零的異動。後端驗證這些跨表規則。
+`products` 1 對多 `lots`；`warehouses` 1 對多 `locations`；`lots` 與 `locations` 透過 `stock_balances` 多對多。每筆庫存變動新增一筆 `stock_movements`。`COUNT_GAIN`、`COUNT_LOSS`、`SCRAP` 一定連結一筆已核准的 `adjustment_requests`。單筆盤點／損耗頁若送出數量相同的盤點申請，核准時不產生零數量異動；整庫逐格盤點若實數相符，則只記錄已確認，根本不建立待審申請。後端驗證這些跨表規則。
 
 | 操作 | 同一交易內依序處理 |
 | --- | --- |
@@ -272,11 +301,30 @@ CREATE INDEX idx_shortage_demands_product_time ON shortage_demands(product_id, c
 
 A1 合併時在 README 記錄登入／登出／目前使用者、角色驗證與基本資料清單的實際 API；A3 合併時記錄共用庫存服務函式、交易責任及批次／位置／餘量選單 API。包含 HTTP 方法、路徑、輸入／輸出範例及失敗回應，並提供前端共用呼叫與型別。B、C、D 依這些已合併介面實作，不各自猜路徑、建立第二套登入或選單 API。A3 只提供操作所需最小選單，完整搜尋及異動歷史仍由 B2 完成。
 
+### 4.5 刪除並重新建立示範資料庫
+
+要從起始狀態重演時，可以刪除本機的 **示範資料庫檔** `data/inventory.db` 並重建；這會清除該檔內所有帳號和演練紀錄，再由 seed 重建兩組示範帳號與起始庫存。`backend.seed` **只補缺，不會重置現有庫存**，所以應在新建空資料庫後執行。要保留原紀錄或更新既有資料庫結構時，請使用 README 的遷移流程；是否另存備份由操作人決定。
+
+以下指令從專案根目錄 `C:\Users\user\Desktop\system` 執行。**先以 Ctrl+C 停止前端與後端**，確認沒有程式正在使用 SQLite。以下是 **PowerShell** 語法；如果提示字元是 `C:\Users\user\Desktop\system>`（CMD），先輸入 `powershell -NoProfile`，看到 `PS C:\Users\user\Desktop\system>` 再逐行執行。指令不會刪除 `data/backups` 內的舊備份。
+
+```powershell
+Remove-Item -LiteralPath 'data/inventory.db' -ErrorAction Stop
+if (Test-Path -LiteralPath 'data/inventory.db') { throw '舊資料庫仍存在，請先停止並檢查。' }
+.\.venv\Scripts\python.exe -m backend.database
+if ($LASTEXITCODE -ne 0) { throw '初始化失敗，請停止。' }
+.\.venv\Scripts\python.exe -m backend.seed
+if ($LASTEXITCODE -ne 0) { throw 'Seed 失敗，請停止。' }
+```
+
+若是**第一次建立**、原本沒有 `data/inventory.db`，跳過 `Remove-Item`，直接執行初始化和 seed。成功後以倉管帳號 `worker`／`worker1234` 登入：紅蘿蔔 `LOT-20260924-901` 在 B-03 應有 5 籠、青花菜 `LOT-20260924-902` 在 B-04 應有 3 籠，尚無演練建立的盤點、損耗或出庫紀錄。若初始化回報 `Database already exists`，表示舊檔未刪除，不能把再次執行 seed 當成重置。重建只刪本機資料庫檔，不會刪 Git 追蹤的程式或 schema。
+
 ## 5. 課堂當天的操作腳本
+
+本節保留原 A4 跨模組整合案例（甘藍菜以「籠」計）；目前一人上台的老師維護驗收流程以 [report.md](report.md) 為準（甘藍菜以「箱」計）。請擇一套流程演示，不混用兩套起始與預期數字。
 
 用預先準備的**情境資料**與兩個示範帳號。桌面可放寫有「A-01」「B-02」的紙卡代表實體位置；不需要印條碼。老師可以在手機、電腦交替操作同一套資料；每個步驟提交後刷新另一台裝置，確認結果同步。
 
-展示起始資料固定為：A1 的基本資料不預載「甘藍菜」，讓步驟 1 可以新增；A3 在 seed 中準備「紅蘿蔔」於 B-03 的批次 5 籠、「青花菜」於 B-04 的另一批次 3 籠及對應入庫異動。兩者都不是甘藍菜，避免影響步驟 3 的總量與補貨缺口。seed 只補缺少的示範資料，不覆寫已操作的餘量，也不重複新增。重演需要回到起點時，A 先停服務並保存／移出原資料庫，再以相同 schema 建新展示資料庫、執行 seed；README 寫清楚步驟，不把重跑 seed 說成重置。
+展示起始資料固定為：A1 的基本資料不預載「甘藍菜」，讓步驟 1 可以新增；A3 在 seed 中準備「紅蘿蔔」於 B-03 的批次 5 籠、「青花菜」於 B-04 的另一批次 3 籠及對應入庫異動。兩者都不是甘藍菜，避免影響步驟 3 的總量與補貨缺口。seed 只補缺少的示範資料，不覆寫已操作的餘量，也不重複新增。重演需要回到起點時，依第 4.5 節停止服務、刪除並重建示範資料庫；是否保留原資料備份由操作人選擇。重跑 seed 不是重置。
 
 | 順序 | 現場操作 | 預期看到的結果 |
 | --- | --- | --- |
@@ -363,7 +411,7 @@ AI 可以產生大量程式碼，因此貢獻不能用「打了幾行」衡量�
 4. **記錄 AI 參與**：在合併說明記錄「使用 AI 完成哪些部分、人工修改哪些規則、跑過哪些測試」。不必保存所有聊天內容，除非課程另有要求。
 5. **禁止看不懂就合併**：模組負責人必須能說明主要檔案、資料流、驗證規則和錯誤處理；無法說明的 AI 程式碼視為未完成。
 6. **每人準備測試證據**：每人至少負責兩個測試案例，其中一個正常流程、一個錯誤流程，並保留測試結果或操作截圖。
-7. **每人上台操作**：四人分別展示自己負責的模組；任一人都要知道完整主線，但不要求每人背誦所有程式碼。
+7. **能獨立展示**：四位組員都應理解自己負責的模組與完整主線；正式報告可由一人依 `report.md` 操作，其他人須能回答各自模組的問題。
 8. **先驗收必做再納入加做**：A 已決定第 2.2 節四項均加做；各項仍要有自己的畫面、API、資料規則和實機驗收，不能只交假畫面或只交 API。
 
 建議每個合併請求使用同一份完成檢查：畫面可操作、後端有驗證、資料重新整理後仍存在、正常與錯誤案例通過、負責人能說明。這些條件比程式碼行數更能證明每位組員的實際貢獻。
@@ -397,6 +445,6 @@ AI 可以產生大量程式碼，因此貢獻不能用「打了幾行」衡量�
 
 **已確認**：作業需可運作；沒有指定技術；當天以手機及電腦操作展示，特殊功能可以另外呈現；團隊共四人，希望以資管系大學生可實現的範圍為準，且主要使用 vibe coding 協助開發。組員不一定能同時工作，因此以 GitHub PR 和文字交接協作。
 
-**用於展示的假設**：資料和倉庫位置為模擬；「甘藍菜」以籠計算；管理者可手動設定最低量和目標量；兩台裝置可連到同一個服務。若教室網路受限，課前改用熱點或可連線環境。老師個案沒有提供真實儲位、磅秤、效期、完整交易與價格資料，故本次不依賴它們。
+**用於展示的假設**：資料和倉庫位置為模擬；`report.md` 的單人演示使用甘藍菜「箱」作單位，這是另於本節原整合案例（甘藍菜「籠」）的展示情境，兩套數字不可混用。管理者可手動設定最低量和目標量；兩台裝置可連到同一個服務。若教室網路受限，課前改用熱點或可連線環境。老師個案沒有提供真實儲位、磅秤、效期、完整交易與價格資料，故本次不依賴它們。
 
 **需由課程團隊決定**：展示電腦、現場網路與可工作的時段；A 至少每天安排一次交付檢查，避免大家等待整合。此時程是工作安排，完成度仍以實測為準。本次沿用現有技術與 SQLite；若課程另有硬性技術要求，再由團隊統一調整，不能各人自行轉換。
