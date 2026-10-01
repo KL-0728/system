@@ -1,6 +1,6 @@
 import { Fragment, useEffect, useRef, useState } from 'react';
 import BackToTop from '../components/BackToTop';
-import QuickJump from '../components/QuickJump';
+import SectionTabs from '../components/SectionTabs';
 import {
   getAdjustmentDetail, getPendingAdjustments, getReviewedAdjustments, reviewAdjustment,
   type AdjustmentDetail,
@@ -10,6 +10,7 @@ import { ApiError } from '../api/client';
 const timeText = (value: string) => new Date(value).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
 
 export default function ReviewPage() {
+  const [activeSection, setActiveSection] = useState('review-pending');
   const [pending, setPending] = useState<AdjustmentDetail[]>([]);
   const [reviewed, setReviewed] = useState<AdjustmentDetail[]>([]);
   const [selected, setSelected] = useState<AdjustmentDetail | null>(null);
@@ -106,14 +107,14 @@ export default function ReviewPage() {
 
   return <main className="app-shell review-page">
     <p className="eyebrow">管理者審核</p><h1>盤點與損耗審核</h1>
-    <QuickJump items={[{ id: 'review-pending', label: '待審申請' }, { id: 'review-reviewed', label: '已審核紀錄' }]} />
+    <SectionTabs items={[{ id: 'review-pending', label: '待審申請' }, { id: 'review-reviewed', label: '已審核紀錄' }]} active={activeSection} onChange={setActiveSection} />
     <p className="hint">核對申請原數、現場實數或報廢量，以及送件原因後再決定。核准才會更新餘量。</p>
     {!selected && error && <p role="alert" className="error">{error}</p>}
     {loading && <p role="status">正在讀取申請…</p>}
     <button className="secondary" type="button" disabled={busy || loading} onClick={() => void refresh()}>更新申請與詳情</button>
     {uncertain && <div className="card"><p role="alert">上次審核結果未確認。請核對此筆狀態、異動紀錄和庫存餘量；查詢暫時沒有結果也不能代表操作失敗。</p>
       <button type="button" disabled={busy || loading || !selected} onClick={() => { setUncertain(false); setError(''); }}>我已核對結果，開始新的審核</button></div>}
-    <section id="review-pending" className="card jump-target" aria-labelledby="pending-title">
+    <section id="review-pending" role="tabpanel" hidden={activeSection !== 'review-pending'} className="card jump-target" aria-labelledby="review-pending-tab">
       <h2 id="pending-title">待審申請</h2>
       {!loading && pending.length === 0 && reviewSlot === null && <p>目前沒有待審申請。</p>}
       <div className="review-list">{pending.map((record, index) => <Fragment key={record.id}>
@@ -129,7 +130,7 @@ export default function ReviewPage() {
       {reviewSlot !== null && reviewSlot >= pending.length && selected?.status !== 'PENDING' && <article className="review-completed">{detail}</article>}
       </div>
     </section>
-    <section id="review-reviewed" className="card jump-target" aria-labelledby="reviewed-title">
+    <section id="review-reviewed" role="tabpanel" hidden={activeSection !== 'review-reviewed'} className="card jump-target" aria-labelledby="review-reviewed-tab">
       <h2 id="reviewed-title">最近已審核申請（最多 100 筆）</h2>
       {!loading && reviewed.length === 0 && <p>目前沒有已審核申請。</p>}
       <div className="review-list">{reviewed.map((record) => <article key={record.id}>

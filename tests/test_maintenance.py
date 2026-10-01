@@ -99,6 +99,32 @@ def test_full_warehouse_count_and_separate_spoilage(clients):
     assert next(row for row in worker.get("/api/inventory/stock").json() if row["lot_id"] == receipt.json()["lot_id"])["qty"] == 1
 
 
+def test_count_check_all_is_atomic_and_only_creates_difference_request(clients):
+    admin, worker = clients
+    warehouse = next(row for row in worker.get("/api/master-data/warehouses").json() if row["code"] == "B")
+    session = worker.post("/api/warehouse-counts", json={"warehouse_id": warehouse["id"]}).json()
+    path = f"/api/warehouse-counts/{session['id']}/check-all"
+    items = [
+        {"item_id": item["id"], "observed_qty": item["original_qty"] - (1 if item["location_code"] == "B-03" else 0),
+         "note": "現場少一籠" if item["location_code"] == "B-03" else ""}
+        for item in session["items"]
+    ]
+    missing_reason = [{**item, "note": ""} for item in items]
+    assert admin.post(path, json={"items": items}).status_code == 403
+    assert worker.post(path, json={"items": items[:-1]}).status_code == 409
+    assert worker.post(path, json={"items": [{**items[0], "observed_qty": 1.5}, *items[1:]]}).status_code == 422
+    assert worker.post(path, json={"items": missing_reason}).status_code == 409
+    assert all(item["checked_at"] is None for item in worker.get(f"/api/warehouse-counts/{session['id']}").json()["items"])
+    assert admin.get("/api/adjustments/pending").json() == []
+    assert worker.post(path, json={"items": items + [items[0]]}).status_code == 409
+    checked = worker.post(path, json={"items": items})
+    assert checked.status_code == 200, checked.text
+    assert all(item["checked_at"] for item in checked.json()["items"])
+    pending = admin.get("/api/adjustments/pending").json()
+    assert len(pending) == 1 and pending[0]["kind"] == "COUNT"
+    assert worker.post(path, json={"items": items}).status_code == 409
+
+
 def test_count_difference_waits_for_review_and_legacy_migration(clients, tmp_path: Path):
     admin, worker = clients
     warehouse = next(row for row in worker.get("/api/master-data/warehouses").json() if row["code"] == "B")

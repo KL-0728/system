@@ -24,6 +24,10 @@ export const checkWarehouseCountItem = (countId: number, itemId: number, observe
   apiRequest(`/api/warehouse-counts/${countId}/items/${itemId}`, {
     method: 'POST', body: JSON.stringify({ observed_qty: observedQty, note }), signal: AbortSignal.timeout(15000),
   });
+export const checkAllWarehouseCountItems = (countId: number, items: { item_id: number; observed_qty: number; note: string }[]): Promise<CountSession> =>
+  apiRequest(`/api/warehouse-counts/${countId}/check-all`, {
+    method: 'POST', body: JSON.stringify({ items }), signal: AbortSignal.timeout(30000),
+  });
 export const reopenWarehouseCountItem = (countId: number, itemId: number): Promise<CountSession> =>
   apiRequest(`/api/warehouse-counts/${countId}/items/${itemId}/reopen`, {
     method: 'POST', signal: AbortSignal.timeout(15000),

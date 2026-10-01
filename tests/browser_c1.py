@@ -37,6 +37,7 @@ def run():
                     page.goto("http://127.0.0.1:18765")
                     page.get_by_role("button", name="登入", exact=True).click()
                     page.get_by_role("button", name="倉管操作", exact=True).click()
+                    page.get_by_role("tab", name="出庫").click()
                     selector = page.locator(".outbound-panel").get_by_label("批次與儲位")
                     expect(selector).to_be_enabled()
                     with database.connect_database() as connection:
@@ -65,12 +66,13 @@ def run():
                     quantity.fill("2")
                     # Two submissions in one event loop also exercise the synchronous ref guard.
                     page.locator(".outbound-panel form").evaluate("form => { form.requestSubmit(); form.requestSubmit(); }")
-                    expect(page.locator(".outbound-panel").get_by_role("status")).to_contain_text("餘量 3 籠")
+                    expect(page.locator('.outbound-panel .notice[role="status"]')).to_contain_text("餘量 3 籠")
                     expect(page.locator(".outbound-records article")).to_have_count(1)
                     assert count == 1
                     page.unroute("**/api/outbound", delayed)
                     page.reload()
                     page.get_by_role("button", name="倉管操作", exact=True).click()
+                    page.get_by_role("tab", name="出庫").click()
                     page.locator(".outbound-panel").get_by_label("要出貨的品項").select_option(str(product_id))
                     expect(selector).to_be_enabled()
                     selector.select_option(f"{lot_id}:{location_id}")

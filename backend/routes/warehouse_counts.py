@@ -1,11 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Path
 
 from backend.auth import get_current_user, require_worker
-from backend.schemas.warehouse_count import CountCheck, CountSession, CountStart
+from backend.schemas.warehouse_count import CountBatchCheck, CountCheck, CountSession, CountStart
 from backend.services.auth_service import AuthenticatedUser
 from backend.services.stock_service import StockError
 from backend.services.warehouse_count_service import (
-    cancel_count, check_item, complete_count, get_count, list_counts, reopen_item, start_count,
+    cancel_count, check_all_items, check_item, complete_count, get_count, list_counts, reopen_item, start_count,
 )
 
 router = APIRouter(prefix="/api/warehouse-counts", tags=["warehouse-counts"])
@@ -41,6 +41,18 @@ def check(
 ) -> CountSession:
     try:
         return check_item(count_id, item_id, payload.observed_qty, payload.note, user.id)
+    except StockError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@router.post("/{count_id}/check-all", response_model=CountSession)
+def check_all(
+    payload: CountBatchCheck,
+    count_id: int = Path(gt=0, le=9223372036854775807),
+    user: AuthenticatedUser = Depends(require_worker),
+) -> CountSession:
+    try:
+        return check_all_items(count_id, payload.items, user.id)
     except StockError as error:
         raise HTTPException(status_code=409, detail=str(error)) from error
 

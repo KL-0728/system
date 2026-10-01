@@ -50,12 +50,14 @@ def run():
                     page.get_by_label("密碼").fill("worker1234")
                     page.get_by_role("button", name="登入", exact=True).click()
                     page.get_by_role("button", name="倉管操作", exact=True).click()
+                    page.get_by_role("tab", name="出庫").click()
                     outbound = page.locator(".outbound-panel")
                     outbound.get_by_label("要出貨的品項").select_option(str(product["id"]))
                     expect(outbound.locator("div.notice")).to_contain_text("LOT-20260924-902")
                     expect(outbound.locator("div.notice")).to_contain_text("B-04")
 
                     count = page.locator(".count-panel")
+                    page.get_by_role("tab", name="整庫盤點").click()
                     # The count page must still refresh after its module has been open longer than 10 seconds.
                     page.wait_for_timeout(10500)
                     count.get_by_role("button", name="重新讀取盤點進度").click()
@@ -63,8 +65,7 @@ def run():
                     count.get_by_label("選擇倉庫").select_option(label="A 冷凍庫")
                     count.get_by_role("button", name="開始／接續盤點").click()
                     expect(count.locator(".count-item")).to_have_count(2)
-                    for item in count.locator(".count-item").all():
-                        item.get_by_role("button", name="確認這一格").click()
+                    count.get_by_role("button", name="一鍵確認所有未確認格").click()
                     expect(count.get_by_text("進度 2/2 格")).to_be_visible()
                     count.locator(".count-item").first.get_by_role("button", name="重新核對這一格").click()
                     expect(count.get_by_text("進度 1/2 格")).to_be_visible()

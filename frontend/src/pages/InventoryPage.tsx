@@ -10,10 +10,11 @@ const movementNames: Record<string, string> = {
   COUNT_GAIN: '盤盈', COUNT_LOSS: '盤虧', SCRAP: '報廢',
 };
 
-function InventoryLot({ positions, role, onExpirySaved }: {
+function InventoryLot({ positions, role, onExpirySaved, revision }: {
   positions: InventoryBalance[];
   role: 'ADMIN' | 'WORKER';
   onExpirySaved: () => Promise<void>;
+  revision: number;
 }) {
   const lot = positions[0];
   const [expanded, setExpanded] = useState(false);
@@ -33,20 +34,21 @@ function InventoryLot({ positions, role, onExpirySaved }: {
     finally { setSavingExpiry(false); }
   }
 
-  async function toggleHistory() {
-    if (expanded) { setExpanded(false); return; }
-    setExpanded(true);
-    if (movements !== null) return;
+  useEffect(() => {
+    if (!expanded) return;
+    let active = true;
     setLoading(true);
-    try {
-      setMovements(await getInventoryMovements(lot.lot_id));
-      setError('');
-    } catch {
-      setError('無法讀取異動歷史，請再試一次。');
-    } finally {
-      setLoading(false);
-    }
-  }
+    setMovements(null);
+    setError('');
+    getInventoryMovements(lot.lot_id).then((result) => {
+      if (active) setMovements(result);
+    }).catch(() => {
+      if (active) setError('無法讀取異動歷史，請再試一次。');
+    }).finally(() => {
+      if (active) setLoading(false);
+    });
+    return () => { active = false; };
+  }, [expanded, lot.lot_id, revision]);
 
   return <article className="inventory-lot">
     <h3>{lot.product_name}／{lot.lot_code}</h3>
@@ -67,7 +69,7 @@ function InventoryLot({ positions, role, onExpirySaved }: {
       </form>
       {expiryError && <p role="alert" className="error">{expiryError}</p>}
     </details>}
-    <button type="button" className="secondary" aria-expanded={expanded} onClick={() => void toggleHistory()}>
+    <button type="button" className="secondary" aria-expanded={expanded} onClick={() => setExpanded((value) => !value)}>
       {expanded ? '收起異動歷史' : '查看異動歷史'}
     </button>
     {expanded && <div className="inventory-history">
@@ -88,6 +90,7 @@ export default function InventoryPage({ refreshKey = 0, role }: { refreshKey?: n
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
   const [rows, setRows] = useState<InventoryBalance[]>([]);
+  const [searchRevision, setSearchRevision] = useState(0);
   const [productId, setProductId] = useState('');
   const [lotCode, setLotCode] = useState('');
   const [locationId, setLocationId] = useState('');
@@ -107,6 +110,7 @@ export default function InventoryPage({ refreshKey = 0, role }: { refreshKey?: n
       const result = await searchInventory(filters);
       if (searchId !== latestSearch.current) return;
       setRows(result);
+      setSearchRevision((value) => value + 1);
       setAppliedFilters(filters);
       setSearched(true);
       setError('');
@@ -120,7 +124,7 @@ export default function InventoryPage({ refreshKey = 0, role }: { refreshKey?: n
   useEffect(() => {
     let active = true;
     Promise.all([getProducts(), getLocations(), searchInventory({})]).then(([nextProducts, nextLocations, nextRows]) => {
-      if (active && latestSearch.current === 0) { setProducts(nextProducts); setLocations(nextLocations); setRows(nextRows); setSearched(true); setError(''); }
+      if (active && latestSearch.current === 0) { setProducts(nextProducts); setLocations(nextLocations); setRows(nextRows); setSearchRevision((value) => value + 1); setSearched(true); setError(''); }
       else if (active) { setProducts(nextProducts); setLocations(nextLocations); }
     }).catch(() => { if (active && latestSearch.current === 0) setError('庫存資料載入失敗，請重新進入頁面。'); })
       .finally(() => { if (active && latestSearch.current === 0) setLoading(false); });
@@ -181,6 +185,6 @@ export default function InventoryPage({ refreshKey = 0, role }: { refreshKey?: n
     {loading && <p role="status">正在讀取資料庫庫存…</p>}
     {!loading && searched && rows.length === 0 && !error && <p role="status">沒有符合條件的庫存。</p>}
     <div className="inventory-results">{[...groups.values()].map((positions) =>
-      <InventoryLot key={positions[0].lot_id} positions={positions} role={role} onExpirySaved={() => runSearch(appliedFilters)} />)}</div>
+      <InventoryLot key={positions[0].lot_id} positions={positions} role={role} revision={searchRevision} onExpirySaved={() => runSearch(appliedFilters)} />)}</div>
   </section>;
 }

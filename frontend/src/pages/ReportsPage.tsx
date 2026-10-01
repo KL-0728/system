@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import BackToTop from '../components/BackToTop';
-import QuickJump from '../components/QuickJump';
+import SectionTabs from '../components/SectionTabs';
 import { getDecisionReport, type DecisionReport } from '../api/reports';
 
 const timeText = (value: string) => new Date(value).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', hour12: false });
 const kindLabel = { COUNT_GAIN: '盤盈', COUNT_LOSS: '盤虧', SCRAP: '報廢' };
 
 export default function ReportsPage() {
+  const [activeSection, setActiveSection] = useState('report-summary');
   const [report, setReport] = useState<DecisionReport | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -30,8 +31,8 @@ export default function ReportsPage() {
     {error && <p role="alert" className="error">{error}</p>}
     {report && <>
       <p className="hint">資料時間：{timeText(report.as_of_utc)}（臺灣時間）；近 30 日依伺服器 UTC 時間計算。</p>
-      <QuickJump items={[{ id: 'report-summary', label: '統計' }, { id: 'report-low-stock', label: '低庫存' }, { id: 'report-products', label: '品項與出庫' }, { id: 'report-shortages', label: '缺貨需求' }, { id: 'report-aged-lots', label: '庫齡' }, { id: 'report-adjustments', label: '盤差與報廢' }]} />
-      <section id="report-summary" className="card jump-target" aria-labelledby="report-summary-title"><h2 id="report-summary-title">首頁統計</h2>
+      <SectionTabs items={[{ id: 'report-summary', label: '統計' }, { id: 'report-low-stock', label: '低庫存' }, { id: 'report-products', label: '品項與出庫' }, { id: 'report-shortages', label: '缺貨需求' }, { id: 'report-aged-lots', label: '庫齡' }, { id: 'report-adjustments', label: '盤差與報廢' }]} active={activeSection} onChange={setActiveSection} />
+      <section id="report-summary" role="tabpanel" hidden={activeSection !== 'report-summary'} className="card jump-target" aria-labelledby="report-summary-tab"><h2 id="report-summary-title">首頁統計</h2>
         <div className="report-summary">
           <article><strong>{report.summary.in_stock_product_count}</strong><span>目前有庫存品項</span></article>
           <article><strong>{report.summary.low_stock_product_count}</strong><span>低於最低量品項</span></article>
@@ -40,7 +41,7 @@ export default function ReportsPage() {
           <article><strong>{report.summary.active_product_count}</strong><span>啟用品項</span></article>
         </div>
       </section>
-      <section id="report-low-stock" className="card jump-target" aria-labelledby="low-stock-title"><h2 id="low-stock-title">低庫存與目標量差距</h2>
+      <section id="report-low-stock" role="tabpanel" hidden={activeSection !== 'report-low-stock'} className="card jump-target" aria-labelledby="report-low-stock-tab"><h2 id="low-stock-title">低庫存與目標量差距</h2>
         {lowProducts.length === 0 && <p>目前沒有低於最低量的品項。</p>}
         <div className="report-list">{lowProducts.map((product) => <article key={product.product_id}>
           <strong>{product.product_name}</strong>
@@ -48,7 +49,7 @@ export default function ReportsPage() {
           <span>距離目標量：{product.replenishment_gap} {product.unit}</span>
         </article>)}</div>
       </section>
-      <section id="report-products" className="card jump-target" aria-labelledby="all-products-title"><h2 id="all-products-title">啟用品項與近 30 日出庫</h2>
+      <section id="report-products" role="tabpanel" hidden={activeSection !== 'report-products'} className="card jump-target" aria-labelledby="report-products-tab"><h2 id="all-products-title">啟用品項與近 30 日出庫</h2>
         {report.products.length === 0 && <p>目前沒有啟用品項。</p>}
         <div className="report-list">{report.products.map((product) => <article key={product.product_id}>
           <strong>{product.product_name}{product.is_low ? '（低庫存）' : ''}</strong>
@@ -57,8 +58,8 @@ export default function ReportsPage() {
           <span>最低 {product.min_qty} {product.unit}；目標 {product.target_qty} {product.unit}；距離目標還差 {product.replenishment_gap} {product.unit}</span>
         </article>)}</div>
       </section>
-      <section id="report-shortages" className="card jump-target" aria-labelledby="shortage-report-title"><h2 id="shortage-report-title">缺貨需求紀錄</h2>
-        <p className="hint">最近 100 筆詢問；只代表想買但未成交的需求，不扣庫存，也不計入實際出庫。</p>
+      <section id="report-shortages" role="tabpanel" hidden={activeSection !== 'report-shortages'} className="card jump-target" aria-labelledby="report-shortages-tab"><h2 id="shortage-report-title">缺貨需求紀錄</h2>
+        <p className="hint">最近 100 筆未成交詢問，可與庫存及目標量一起參考補貨；不扣庫存，也不計入實際出庫。紀錄作為歷史保留，目前沒有採購或結案流程。</p>
         {report.shortage_demands.length === 0 && <p>目前沒有缺貨需求紀錄。</p>}
         <div className="report-list">{report.shortage_demands.map((item) => <article key={item.id}>
           <strong>#{item.id} {item.product_name}：詢問 {item.qty} {item.unit}</strong>
@@ -66,14 +67,14 @@ export default function ReportsPage() {
           {item.note && <span>備註：{item.note}</span>}
         </article>)}</div>
       </section>
-      <section id="report-aged-lots" className="card jump-target" aria-labelledby="aged-lots-title"><h2 id="aged-lots-title">現有批次庫齡</h2>
+      <section id="report-aged-lots" role="tabpanel" hidden={activeSection !== 'report-aged-lots'} className="card jump-target" aria-labelledby="report-aged-lots-tab"><h2 id="aged-lots-title">現有批次庫齡</h2>
         {report.aged_lots.length === 0 && <p>目前沒有正餘量批次。</p>}
         <div className="report-list">{report.aged_lots.map((lot) => <article key={lot.lot_id}>
           <strong>{lot.product_name}／{lot.lot_code}</strong>
           <span>入庫日 {lot.received_date}；庫齡 {lot.age_days} 天；現有 {lot.total_qty} {lot.unit}</span>
         </article>)}</div>
       </section>
-      <section id="report-adjustments" className="card jump-target" aria-labelledby="adjustment-report-title"><h2 id="adjustment-report-title">盤差與報廢</h2>
+      <section id="report-adjustments" role="tabpanel" hidden={activeSection !== 'report-adjustments'} className="card jump-target" aria-labelledby="report-adjustments-tab"><h2 id="adjustment-report-title">盤差與報廢</h2>
         <p className="hint">下列數量是各品項歷來已核准的異動；盤盈、盤虧和報廢分開列示。</p>
         {changedProducts.length === 0 && <p>目前沒有已核准的盤差或報廢異動。</p>}
         <div className="report-list">{changedProducts.map((product) => <article key={product.product_id}>

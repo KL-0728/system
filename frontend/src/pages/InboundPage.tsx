@@ -11,7 +11,7 @@ import { productOptionLabel } from '../utils/productOptionLabel';
 
 const taiwanNow = () => new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Taipei', hour12: false }).replace(' ', 'T').slice(0, 16);
 
-export default function InboundPage({ onStockChanged }: { onStockChanged?: () => void }) {
+export default function InboundPage({ onStockChanged, refreshKey = 0 }: { onStockChanged?: () => void; refreshKey?: number }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [locations, setLocations] = useState<StockLocationOption[]>([]);
   const [records, setRecords] = useState<InboundRecord[]>([]);
@@ -45,6 +45,7 @@ export default function InboundPage({ onStockChanged }: { onStockChanged?: () =>
   }
 
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => { if (refreshKey > 0) void refresh(); }, [refreshKey]);
   useEffect(() => { if (success) smoothScrollTo(resultRef.current); }, [success]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {

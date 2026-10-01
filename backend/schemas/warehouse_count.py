@@ -17,6 +17,15 @@ class CountCheck(BaseModel):
     note: str = Field(default="", max_length=500)
 
 
+class CountBatchItem(CountCheck):
+    item_id: PositiveInt
+
+
+class CountBatchCheck(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    items: list[CountBatchItem] = Field(min_length=1)
+
+
 class CountItem(BaseModel):
     id: int
     location_id: int

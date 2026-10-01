@@ -7,7 +7,7 @@ import { smoothScrollTo } from '../utils/smoothScroll';
 import { releaseFormFocus } from '../utils/formFocus';
 import { productOptionLabel } from '../utils/productOptionLabel';
 
-export default function ShortagePage() {
+export default function ShortagePage({ refreshKey = 0 }: { refreshKey?: number }) {
   const [products, setProducts] = useState<Product[]>([]);
   const [records, setRecords] = useState<ShortageDemand[]>([]);
   const [productId, setProductId] = useState('');
@@ -34,6 +34,7 @@ export default function ShortagePage() {
   }
 
   useEffect(() => { void refresh(); }, []);
+  useEffect(() => { if (refreshKey > 0) void refresh(); }, [refreshKey]);
   useEffect(() => { if (success) smoothScrollTo(resultRef.current); }, [success]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -62,7 +63,7 @@ export default function ShortagePage() {
 
   return <section className="card shortage-panel" aria-labelledby="shortage-title">
     <h2 id="shortage-title">缺貨需求紀錄</h2>
-    <p className="hint">客人想買但沒有成交時，記下品項與詢問數量；即使目前庫存為 0 也可記錄。這不是訂單或出庫，不會變動庫存。</p>
+    <p className="hint">客人想買但沒有成交時，記下品項與詢問數量；即使庫存為 0 也可記錄。管理者可在決策報表對照庫存與需求，判斷是否補貨。紀錄會保留作歷史參考；目前不會自動建立採購單或結案，也不會變動庫存。</p>
     {error && <p className="error" role="alert">{error}</p>}
     {success && <p ref={resultRef} className="notice" role="status">{success}</p>}
     <form onSubmit={submit}>

@@ -2,7 +2,7 @@
 import sqlite3
 
 from backend.database import connect_database
-from backend.schemas.warehouse_count import CountSession
+from backend.schemas.warehouse_count import CountBatchItem, CountSession
 from backend.services.stock_service import StockError, ensure_no_pending, stock_transaction
 
 
@@ -88,51 +88,76 @@ def start_count(warehouse_id: int, actor_id: int) -> CountSession:
     return result
 
 
-def check_item(count_id: int, item_id: int, observed_qty: int, note: str, actor_id: int) -> CountSession:
+def _check_item(
+    connection: sqlite3.Connection, count_id: int, item_id: int,
+    observed_qty: int, note: str, actor_id: int,
+) -> None:
     note = note.strip()
+    session = connection.execute(
+        "SELECT status FROM warehouse_counts WHERE id = ?", (count_id,)
+    ).fetchone()
+    if session is None or session["status"] != "OPEN":
+        raise StockError("盤點不存在或已完成")
+    item = connection.execute("""
+        SELECT * FROM warehouse_count_items WHERE id = ? AND count_id = ?
+    """, (item_id, count_id)).fetchone()
+    if item is None:
+        raise StockError("盤點項目不存在")
+    if item["checked_at"] is not None:
+        raise StockError("這一格已確認，請更新盤點紀錄")
+    if item["lot_id"] is None:
+        if observed_qty != 0:
+            raise StockError("空儲位若發現未登錄貨物，請先通知管理者確認批次")
+        changed = connection.execute("""
+            SELECT 1 FROM stock_balances WHERE location_id = ? AND qty > 0 LIMIT 1
+        """, (item["location_id"],)).fetchone()
+        if changed:
+            raise StockError("此儲位已有新庫存，請重新建立盤點")
+    else:
+        current = connection.execute("""
+            SELECT qty FROM stock_balances WHERE lot_id = ? AND location_id = ?
+        """, (item["lot_id"], item["location_id"])).fetchone()
+        if current is None or current["qty"] != item["original_qty"]:
+            raise StockError("帳面庫存已變更，請重新建立盤點")
+        ensure_no_pending(connection, item["lot_id"], item["location_id"])
+    request_id = None
+    if observed_qty != item["original_qty"]:
+        if not note:
+            raise StockError("有盤差時必須填寫原因")
+        cursor = connection.execute("""
+            INSERT INTO adjustment_requests
+            (kind, lot_id, location_id, original_qty, observed_qty, reason, requested_by)
+            VALUES ('COUNT', ?, ?, ?, ?, ?, ?)
+        """, (item["lot_id"], item["location_id"], item["original_qty"], observed_qty, note, actor_id))
+        request_id = int(cursor.lastrowid)
+    connection.execute("""
+        UPDATE warehouse_count_items
+        SET observed_qty = ?, adjustment_request_id = ?, checked_at = CURRENT_TIMESTAMP, note = ?
+        WHERE id = ?
+    """, (observed_qty, request_id, note, item_id))
+
+
+def check_item(count_id: int, item_id: int, observed_qty: int, note: str, actor_id: int) -> CountSession:
     with stock_transaction() as connection:
-        session = connection.execute(
-            "SELECT status FROM warehouse_counts WHERE id = ?", (count_id,)
-        ).fetchone()
-        if session is None or session["status"] != "OPEN":
-            raise StockError("盤點不存在或已完成")
-        item = connection.execute("""
-            SELECT * FROM warehouse_count_items WHERE id = ? AND count_id = ?
-        """, (item_id, count_id)).fetchone()
-        if item is None:
-            raise StockError("盤點項目不存在")
-        if item["checked_at"] is not None:
-            raise StockError("這一格已確認，請更新盤點紀錄")
-        if item["lot_id"] is None:
-            if observed_qty != 0:
-                raise StockError("空儲位若發現未登錄貨物，請先通知管理者確認批次")
-            changed = connection.execute("""
-                SELECT 1 FROM stock_balances WHERE location_id = ? AND qty > 0 LIMIT 1
-            """, (item["location_id"],)).fetchone()
-            if changed:
-                raise StockError("此儲位已有新庫存，請重新建立盤點")
-        else:
-            current = connection.execute("""
-                SELECT qty FROM stock_balances WHERE lot_id = ? AND location_id = ?
-            """, (item["lot_id"], item["location_id"])).fetchone()
-            if current is None or current["qty"] != item["original_qty"]:
-                raise StockError("帳面庫存已變更，請重新建立盤點")
-            ensure_no_pending(connection, item["lot_id"], item["location_id"])
-        request_id = None
-        if observed_qty != item["original_qty"]:
-            if not note:
-                raise StockError("有盤差時必須填寫原因")
-            cursor = connection.execute("""
-                INSERT INTO adjustment_requests
-                (kind, lot_id, location_id, original_qty, observed_qty, reason, requested_by)
-                VALUES ('COUNT', ?, ?, ?, ?, ?, ?)
-            """, (item["lot_id"], item["location_id"], item["original_qty"], observed_qty, note, actor_id))
-            request_id = int(cursor.lastrowid)
-        connection.execute("""
-            UPDATE warehouse_count_items
-            SET observed_qty = ?, adjustment_request_id = ?, checked_at = CURRENT_TIMESTAMP, note = ?
-            WHERE id = ?
-        """, (observed_qty, request_id, note, item_id))
+        _check_item(connection, count_id, item_id, observed_qty, note, actor_id)
+        result = _session(connection, count_id)
+    return result
+
+
+def check_all_items(count_id: int, items: list[CountBatchItem], actor_id: int) -> CountSession:
+    ids = [item.item_id for item in items]
+    if len(ids) != len(set(ids)):
+        raise StockError("盤點項目不可重複")
+    with stock_transaction() as connection:
+        unfinished = {
+            row["id"] for row in connection.execute(
+                "SELECT id FROM warehouse_count_items WHERE count_id = ? AND checked_at IS NULL", (count_id,)
+            )
+        }
+        if not unfinished or set(ids) != unfinished:
+            raise StockError("盤點項目已變更，請重新讀取盤點進度")
+        for item in items:
+            _check_item(connection, count_id, item.item_id, item.observed_qty, item.note, actor_id)
         result = _session(connection, count_id)
     return result
 
