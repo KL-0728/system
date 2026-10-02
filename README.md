@@ -64,6 +64,7 @@ git push -u origin feature/b-b1-inbound
 從專案根目錄操作。先在前後端的終端機按 **Ctrl+C** 停止服務。下方是 **PowerShell** 指令；如果提示字元是 `C:\Users\user\Desktop\system>`，表示目前在 CMD，先輸入 `powershell -NoProfile`，看到 `PS C:\Users\user\Desktop\system>` 後再逐行執行。這個流程只刪除目前的 `data/inventory.db`，不會刪除 `data/backups` 或程式檔。若要保留原紀錄，可先照下方「備份、重演與還原」保存；若不需要，直接刪除即可。
 
 ```powershell
+powershell -NoProfile
 Remove-Item -LiteralPath 'data/inventory.db' -ErrorAction Stop
 if (Test-Path -LiteralPath 'data/inventory.db') { throw '舊資料庫仍存在，請先檢查。' }
 .\.venv\Scripts\python.exe -m backend.database
